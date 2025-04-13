@@ -1,208 +1,67 @@
-# Online Exam System - Frontend Developer Guide
+Great! Glad to hear the application is running.
 
-## Project Overview
+Here is the updated API documentation based on the corrected code and the requirements discussed. This should help you test all the endpoints effectively using a tool like Postman or Insomnia.
 
-The Online Exam System is a web application designed to facilitate the creation, management, and execution of online exams. It supports multiple user roles with varying permissions, providing a flexible platform for educational institutions or training programs. This document serves as a comprehensive guide for frontend developers, outlining how to interact with the backend API and integrate it into the frontend application.
+Online Exam Portal - API Documentation (Updated)
 
-## User Roles
+Base URL: (Your running server, e.g., http://127.0.0.1:5000)
 
-The system defines three distinct user roles, each with specific functionalities:
+Authentication:
 
-1.  **Admin:**
-    *   Manages the system, users (teachers and students), and system-wide settings.
-    *   Can verify new users, delete users, and access all exam results.
-    * Can trigger AI evaluation for questions.
+Most endpoints require a JSON Web Token (JWT).
 
-2.  **Teacher:**
-    *   Creates, updates, and deletes exams.
-    *   Adds, updates, and deletes questions for exams.
-    *   Reviews exam results for their exams.
+Obtain the token via POST /auth/login.
 
-3.  **Student:**
-    *   Views available exams.
-    *   Takes exams.
-    *   Submits exam responses.
-    *   Views their exam results.
+Include the token in the Authorization header for subsequent requests:
+Authorization: Bearer <YOUR_JWT_TOKEN>
 
-## API Endpoints
+Many endpoints also require specific roles (Admin, Teacher, Student) and for the user account to be verified. These requirements are noted for each endpoint.
 
-The following table details all the API endpoints available in the Online Exam System, including their methods, parameters, request/response examples, and authentication requirements.
+🛡️ Common APIs (Authentication & User Info)
+Method	Endpoint	Description	Auth Required	Request Body (JSON)	Success Response (200/201)	Error Responses
+POST	/auth/register	Register a new user (default: Student).	None	{"name": "Test User", "email": "test@example.com", "password": "password123", "role": "Student"} (Role optional, defaults to Student)	{"msg": "User registered successfully. Awaiting verification if applicable.", "user": {"id": 1, "name": "Test User", "email": "test@example.com", "role": "Student"}}	400 Bad Request (Missing fields), 409 Conflict (Email exists), 400 Bad Request (Invalid role)
+POST	/auth/login	Login to get JWT access token.	None	{"email": "verified.student@example.com", "password": "password123"}	{"access_token": "eyJhbGciOiJI..."}	400 Bad Request (Missing fields), 401 Unauthorized (Bad email/password), 403 Forbidden (Account not verified)
+POST	/auth/refresh	Optional: Get a new access token using refresh token.	Refresh JWT	(Requires Flask-JWT-Extended refresh token setup)	{"access_token": "eyJhbGciOi..."}	401 Unauthorized (Invalid/Expired refresh token)
+GET	/auth/me	Get current authenticated user's details.	Access JWT	None	{"id": 1, "name": "Test User", "email": "test@example.com", "role": "Student", "is_verified": true}	401 Unauthorized (Invalid/Expired token), 404 Not Found (User deleted after token issued)
+POST	/auth/logout	Logs out the user (Basic: confirms action).	Access JWT	None	{"msg": "Logout successful. Please discard your token."}	401 Unauthorized (Invalid/Expired token)
+🧑‍💼 Admin APIs
 
-**Authentication Endpoints:**
+(Requires: Access JWT + Admin Role + Verified Account)
 
-| Endpoint            | Method | Description                       | Request Body                                                       | Response Example                                                                                                          | Authentication |
-| :------------------ | :----- | :-------------------------------- | :----------------------------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------ | :------------- |
-| `/auth/register`   | POST   | Register a new user.              | `{"name": "User Name", "email": "user@email.com", "password": "password", "role": "student"}` | `{"msg": "User created successfully", "user_id": 1, "name": "User Name", "email": "user@email.com"}`                       | None           |
-| `/auth/login`      | POST   | Login a user and get a JWT token. | `{"email": "user@email.com", "password": "password"}`           | `{"msg": "Login successful", "access_token": "JWT_TOKEN"}`                                                             | None           |
-| `/auth/logout`     | POST   | Logout the current user.          | None                                                               | `{"msg": "Logout successful"}`                                                                                            | JWT            |
+Method	Endpoint	Description	Request Body (JSON)	Path/Query Params	Success Response (200/201)	Error Responses
+GET	/admin/dashboard	Get admin dashboard statistics.	None	None	{"message": "Admin Dashboard", "active_teachers": 5, "active_students": 50, "pending_verifications": 3, "total_exams": 15, "total_responses_submitted": 250, "responses_evaluated": 200, "responses_pending_evaluation": 50}	401 Unauthorized, 403 Forbidden
+GET	/admin/users/pending	Get list of users awaiting verification.	None	None	[{"id": 2, "name": "Pending Teacher", "email": "pending.t@example.com", "role": "Teacher", "registered_at": "2024-01-10T10:00:00"}, ...]	401 Unauthorized, 403 Forbidden
+POST	/admin/users/verify/<user_id>	Verify a registered Teacher or Student.	None	user_id (int)	{"msg": "User pending.t@example.com verified successfully"}	401 Unauthorized, 403 Forbidden, 404 Not Found (User ID), 400 Bad Request (User already verified or trying to verify Admin)
+GET	/admin/teachers	Get list of all registered teachers.	None	None	[{"id": 3, "name": "Teacher One", "email": "teacher1@example.com", "is_verified": true}, ...]	401 Unauthorized, 403 Forbidden
+GET	/admin/students	Get list of all registered students.	None	None	[{"id": 4, "name": "Student One", "email": "student1@example.com", "is_verified": true}, ...]	401 Unauthorized, 403 Forbidden
+DELETE	/admin/users/<user_id>	Delete a Teacher or Student user.	None	user_id (int)	{"msg": "User student1@example.com deleted successfully"}	401 Unauthorized, 403 Forbidden (e.g., trying to delete self or another Admin), 404 Not Found (User ID)
+GET	/admin/results/all	Get all evaluated results (paginated).	None	?page=1&per_page=20 (Optional)	{"results": [{"evaluation_id": 1, "student_name": "S Name", ..., "marks_awarded": 4.5, ...}], "total": 150, "pages": 8, "current_page": 1}	401 Unauthorized, 403 Forbidden
+POST	/admin/evaluate/response/<response_id>	Trigger AI evaluation for a specific response.	None	response_id (int)	{"msg": "AI evaluation successful", "evaluation_id": 12, "marks_awarded": 4.0, "feedback": "Good explanation, but missed point X."} OR {"msg": "AI evaluation skipped: Student response was empty. Marked as 0.", ...}	401 Unauthorized, 403 Forbidden, 404 Not Found (Response ID or related Question), 400 Bad Request (Already evaluated), 500 Internal Server Error (AI API call failure, parsing error, other exception)
+👩‍🏫 Teacher APIs
 
-**Admin Endpoints (requires `admin` role, `jwt`, and `verification`):**
+(Requires: Access JWT + Teacher Role + Verified Account)
 
-| Endpoint                         | Method | Description                                        | Request Body                                                | Response Example                                                                                                            | Authentication      |
-| :------------------------------- | :----- | :------------------------------------------------- | :---------------------------------------------------------- | :-------------------------------------------------------------------------------------------------------------------------- | :------------------ |
-| `/admin/dashboard`               | GET    | Get admin dashboard statistics.                    | None                                                        | `{"message": "Admin Dashboard", "teachers": 5, "students": 10, "exams": 20}`                                              | JWT, Admin, Verified |
-| `/admin/users/pending`           | GET    | Get a list of pending users.                       | None                                                        | `[{"id": 2, "name": "Pending User", "email": "pending@email.com", "role": "teacher"}]`                                      | JWT, Admin, Verified |
-| `/admin/users/verify/<user_id>` | POST   | Verify a user.                                     | None                                                        | `{"msg": "User pending@email.com verified successfully"}`                                                              | JWT, Admin, Verified |
-| `/admin/teachers`                | GET    | Get a list of all teachers.                        | None                                                        | `[{"id": 3, "name": "Teacher One", "email": "teacher@email.com", "is_verified": true}]`                                   | JWT, Admin, Verified |
-| `/admin/students`                | GET    | Get a list of all students.                        | None                                                        | `[{"id": 4, "name": "Student One", "email": "student@email.com", "is_verified": false}]`                                    | JWT, Admin, Verified |
-| `/admin/users/<user_id>`        | DELETE | Delete a user.                                     | None                                                        | `{"msg": "User user@email.com deleted successfully"}`                                                                  | JWT, Admin, Verified |
-| `/admin/results/all`             | GET    | Get all exam results.                              | None                                                        | `[{"evaluation_id": 1, "student_name": "Student One", "student_email": "student@email.com", "exam_title": "Exam 1", "question_text": "Question 1...", "marks_awarded": 5, "evaluated_by": "AI_Gemini (Admin Trigger: 1)", "evaluated_at": "2024-01-01T12:00:00"}]` | JWT, Admin, Verified |
-| `/admin/evaluate/response/<response_id>` | POST   | Triggers AI Evaluation to evaluate a response | None                                                        | `{"msg": "AI evaluation successful","evaluation_id": 1,"marks_awarded": 5,"feedback": "Good Answer"}`                                                        | JWT, Admin, Verified |
+Method	Endpoint	Description	Request Body (JSON)	Path/Query Params	Success Response (200/201)	Error Responses
+GET	/teacher/dashboard	Get teacher dashboard statistics.	None	None	{"message": "Teacher Dashboard", "my_exams_count": 10}	401 Unauthorized, 403 Forbidden
+POST	/teacher/exams	Create a new exam.	{"title": "Midterm Exam", "description": "Covers chapters 1-5.", "scheduled_time": "2024-10-20T09:00:00Z", "duration": 90} (Use ISO 8601 UTC)	None	{"msg": "Exam created successfully", "exam_id": 25, "title": "Midterm Exam"}	401 Unauthorized, 403 Forbidden, 400 Bad Request (Missing fields, invalid format)
+GET	/teacher/exams	Get exams created by this teacher.	None	None	[{"id": 25, "title": "Midterm Exam", ..., "created_at": "..."}]	401 Unauthorized, 403 Forbidden
+GET	/teacher/exams/<exam_id>	Get details of a specific exam.	None	exam_id (int)	{"id": 25, "title": "Midterm Exam", "description": "...", "scheduled_time": "...", "duration": 90}	401 Unauthorized, 403 Forbidden, 404 Not Found (Exam ID not found or not owned by teacher)
+PUT	/teacher/exams/<exam_id>	Update an exam's details.	{ "description": "Updated description", "duration": 100 } (Send only fields to update)	exam_id (int)	{"msg": "Exam updated successfully"}	401 Unauthorized, 403 Forbidden, 404 Not Found, 400 Bad Request (Invalid data format, no changes provided)
+DELETE	/teacher/exams/<exam_id>	Delete an exam and all related data.	None	exam_id (int)	{"msg": "Exam and associated data deleted successfully"}	401 Unauthorized, 403 Forbidden, 404 Not Found
+POST	/teacher/exams/<exam_id>/questions	Add a question to an exam.	MCQ: {"question_text": "...", "question_type": "MCQ", "marks": 1, "options": {"A": "Opt1", "B": "Opt2"}, "correct_answer": "A"}<br/>SA/LA: {"question_text": "...", "question_type": "Short Answer", "marks": 5, "word_limit": 50}	exam_id (int)	{"msg": "Question added successfully", "question_id": 101}	401 Unauthorized, 403 Forbidden, 404 Not Found (Exam), 400 Bad Request (Missing fields, invalid type, validation fail)
+GET	/teacher/exams/<exam_id>/questions	Get all questions for a specific exam.	None	exam_id (int)	[{"id": 101, "question_text": "...", "question_type": "MCQ", ...}, {"id": 102, ...}]	401 Unauthorized, 403 Forbidden, 404 Not Found (Exam)
+PUT	/teacher/exams/<exam_id>/questions/<question_id>	Update a specific question.	{ "marks": 6, "question_text": "Updated text..." } (Send only fields to update)	exam_id (int), question_id (int)	{"msg": "Question updated successfully"}	401 Unauthorized, 403 Forbidden, 404 Not Found (Exam/Question), 400 Bad Request (Invalid data, validation fail, no changes)
+DELETE	/teacher/exams/<exam_id>/questions/<question_id>	Delete a specific question.	None	exam_id (int), question_id (int)	{"msg": "Question deleted successfully"}	401 Unauthorized, 403 Forbidden, 404 Not Found (Exam/Question)
+GET	/teacher/exams/results/<exam_id>	Get results for a specific exam (by student).	None	exam_id (int)	[{"student_id": 4, "student_name": "S Name", "total_marks_awarded": 8.5, "total_marks_possible": 10, "details": [{ "question_id": 101, ... }, ...]}, ...]	401 Unauthorized, 403 Forbidden, 404 Not Found (Exam)
+🎓 Student APIs
 
-**Teacher Endpoints (requires `teacher` role, `jwt`, and `verification`):**
+(Requires: Access JWT + Student Role + Verified Account)
 
-| Endpoint                                   | Method | Description                                                | Request Body                                                                                                                                                                                              | Response Example                                                                                                                                                                                                           | Authentication         |
-| :----------------------------------------- | :----- | :--------------------------------------------------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :--------------------- |
-| `/teacher/dashboard`                       | GET    | Get teacher dashboard statistics.                          | None                                                                                                                                                                                                      | `{"message": "Teacher Dashboard", "my_exams_count": 10}`                                                                                                                                                                        | JWT, Teacher, Verified |
-| `/teacher/exams`                           | POST   | Create a new exam.                                        | `{"title": "New Exam", "description": "Exam Description", "scheduled_time": "2024-12-31T10:00:00", "duration": 60}`                                                                                             | `{"msg": "Exam created successfully", "exam_id": 1, "title": "New Exam"}`                                                                                                                                                           | JWT, Teacher, Verified |
-| `/teacher/exams`                           | GET    | Get teacher's exams.                                      | None                                                                                                                                                                                                      | `[{"id": 1, "title": "Exam 1", "description": "Exam 1 Description", "scheduled_time": "2024-12-31T10:00:00", "duration": 60, "created_at": "2024-01-01T09:00:00"}]`                                                                | JWT, Teacher, Verified |
-| `/teacher/exams/<exam_id>`                | GET    | Get details of an exam.                                   | None                                                                                                                                                                                                      | `{"id": 1, "title": "Exam 1", "description": "Exam 1 Description", "scheduled_time": "2024-12-31T10:00:00", "duration": 60}`                                                                                                       | JWT, Teacher, Verified |
-| `/teacher/exams/<exam_id>`                | PUT    | Update an exam.                                           | `{"title": "Updated Exam", "description": "Updated Description", "scheduled_time": "2025-01-01T12:00:00", "duration": 90}` (fields can be partial)                                                               | `{"msg": "Exam updated successfully"}`                                                                                                                                                                                                | JWT, Teacher, Verified |
-| `/teacher/exams/<exam_id>`                | DELETE | Delete an exam.                                           | None                                                                                                                                                                                                      | `{"msg": "Exam and associated data deleted successfully"}`                                                                                                                                                                          | JWT, Teacher, Verified |
-| `/teacher/exams/<exam_id>/questions`      | POST   | Add a question to an exam.                               | `{"question_text": "Question 1?", "question_type": "MCQ", "marks": 5, "options": {"A": "Option A", "B": "Option B"}, "correct_answer": "A", "word_limit": 100}`                                                  | `{"msg": "Question added successfully", "question_id": 1}`                                                                                                                                                                             | JWT, Teacher, Verified |
-| `/teacher/exams/<exam_id>/questions`      | GET    | Get all questions for an exam.                            | None                                                                                                                                                                                                      | `[{"id": 1, "question_text": "Question 1?", "question_type": "MCQ", "marks": 5, "options": {"A": "Option A", "B": "Option B"}, "correct_answer": "A", "word_limit": 100}]`                                                  | JWT, Teacher, Verified |
-| `/teacher/exams/<exam_id>/questions/<question_id>` | PUT    | Update a question.                                        | `{"question_text": "Updated Question", "question_type": "SHORT_ANSWER", "marks": 10}` (fields can be partial)                                                                                                            | `{"msg": "Question updated successfully"}`                                                                                                                                                                                                | JWT, Teacher, Verified |
-| `/teacher/exams/<exam_id>/questions/<question_id>` | DELETE | Delete a question.                                        | None                                                                                                                                                                                                      | `{"msg": "Question deleted successfully"}`                                                                                                                                                                                             | JWT, Teacher, Verified |
-| `/teacher/exams/results/<exam_id>`         | GET    | Get the results for an exam.                              | None                                                                                                                                                                                                      | `[{"student_id": 4,"student_name": "Student One","question_id": 1, "question_text": "Question 1?", "response_text": "Student Answer","submitted_at": "2024-01-01T11:00:00","evaluations": [{"evaluation_id": 1, "marks_awarded": 5, "feedback": "Good Answer", "evaluated_by": "AI_Gemini", "evaluated_at": "2024-01-01T12:00:00"}]}]` | JWT, Teacher, Verified |
+Method	Endpoint	Description	Request Body (JSON)	Path/Query Params	Success Response (200/201)	Error Responses
+GET	/student/dashboard	Get student dashboard statistics.	None	None	{"message": "Student Dashboard", "completed_exams_count": 3, "upcoming_exams": [{"id": 26, "title": "Final Exam", "scheduled_time": "..."}]}	401 Unauthorized, 403 Forbidden
+GET	/student/exams/available	Get list of exams available to take (not submitted).	None	None	[{"id": 26, "title": "Final Exam", ..., "status": "Active"}, {"id": 27, "title": "Quiz 3", ..., "status": "Upcoming"}]	401 Unauthorized, 403 Forbidden
+GET	/student/exams/<exam_id>/take	Get questions for starting/taking an exam.	None	exam_id (int)	{"exam_id": 26, "exam_title": "Final Exam", "questions": [{"id": 105, "question_text": "...", "options": {...}, ...}], "time_remaining_seconds": 3590}	401 Unauthorized, 403 Forbidden (Not active, already submitted), 404 Not Found (Exam)
+POST	/student/exams/<exam_id>/submit	Submit answers for an exam.	{"answers": [{"question_id": 105, "response_text": "My answer for Q105"}, {"question_id": 106, "response_text": "B"}]}	exam_id (int)	{"msg": "Exam submitted successfully."}	401 Unauthorized, 403 Forbidden (Deadline passed, already submitted), 404 Not Found (Exam), 400 Bad Request (Invalid format, no valid answers)
+GET	/student/results/my	Get results for all submitted/evaluated exams.	None	None	[{"exam_id": 25, "exam_title": "Midterm Exam", ..., "total_marks_awarded": 8.5, "total_marks_possible": 10, "questions": [{"question_id": 101, "your_response": "...", "marks_awarded": 4.5, ...}, ...]}, ...]	401 Unauthorized, 403 Forbidden
 
-**Student Endpoints (requires `student` role, `jwt`, and `verification`):**
-
-| Endpoint                      | Method | Description                                                | Request Body                                                                                                               | Response Example                                                                                                                                                                                                                                                          | Authentication          |
-| :---------------------------- | :----- | :--------------------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | :---------------------- |
-| `/student/dashboard`          | GET    | Get student dashboard statistics.                          | None                                                                                                                       | `{"message": "Student Dashboard", "completed_exams_count": 2, "upcoming_exams": [{"id": 2, "title": "Exam 2", "scheduled_time": "2025-01-01T10:00:00"}]}`                                                                                                                                       | JWT, Student, Verified  |
-| `/student/exams/available`    | GET    | Get available exams for the student.                       | None                                                                                                                       | `[{"id": 2, "title": "Exam 2", "description": "Exam 2 Description", "scheduled_time": "2025-01-01T10:00:00", "duration": 90, "status": "Upcoming"}]`                                                                                                                                                   | JWT, Student, Verified  |
-| `/student/exams/take/<exam_id>` | GET    | Get the exam questions to take.                         | None                                                                                                                        | `{"exam_id": 2, "title": "Exam 2", "questions": [{"id": 1, "question_text": "Question 1?", "question_type": "MCQ", "marks": 5, "options": {"A": "Option A", "B": "Option B"}, "word_limit": 100}]}`                                                                                           | JWT, Student, Verified |
-| `/student/exams/submit/<exam_id>` | POST   | Submit an exam response.                               | `[{"1": "Answer to question 1"}, {"2": "Answer to question 2"}]` (question_id: response)                                   | `{"msg": "Exam submitted successfully"}`                                                                                                                                                                                                                                    | JWT, Student, Verified |
-| `/student/exams/results`       | GET    | Get the student's results.                                | None                                                                                                                       | `[{"exam_title": "Exam 1", "question_text": "Question 1?", "response_text": "Student Answer","submitted_at": "2024-01-01T11:00:00", "evaluations": [{"evaluation_id": 1, "marks_awarded": 5, "feedback": "Good Answer", "evaluated_by": "AI_Gemini", "evaluated_at": "2024-01-01T12:00:00"}]}]` | JWT, Student, Verified |
-
-## Authentication Flow
-
-1.  **Registration:**
-    *   A new user registers via `POST /auth/register`, providing their `name`, `email`, `password`, and `role`.
-    *   The backend creates the user and returns a success message with the user details.
-2.  **Login:**
-    *   A registered user logs in via `POST /auth/login`, providing their `email` and `password`.
-    *   The backend authenticates the user and returns a JWT token.
-3.  **Protected Endpoints:**
-    *   Subsequent requests to protected endpoints must include the JWT token in the `Authorization` header.
-    *   Example: `Authorization: Bearer <JWT_TOKEN>`
-4.  **Logout:**
-    * User can logout by calling the endpoint `POST /auth/logout`.
-5.  **Verification:**
-    * New users are initially not verified.
-    * Admins can verify users by using `POST /admin/users/verify/<user_id>`.
-    * Only verified users can access the endpoints.
-
-## User Flows
-
-### Admin User Flow
-
-1.  **Login:**
-    *   Navigate to the login page.
-    *   Enter admin credentials.
-    *   Submit the login form.
-    *   Receive a JWT token.
-2.  **Access Admin Dashboard:**
-    *   Navigate to `/admin/dashboard`.
-    *   Include the JWT token in the `Authorization` header.
-    *   View system statistics (number of teachers, students, exams).
-3.  **Manage Pending Users:**
-    *   Navigate to `/admin/users/pending`.
-    *   Include the JWT token in the `Authorization` header.
-    *   View a list of pending users.
-    *   Click "Verify" next to a user.
-    *   A `POST` request is sent to `/admin/users/verify/<user_id>`.
-4.  **Manage Teachers/Students:**
-    *   Navigate to `/admin/teachers` or `/admin/students`.
-    *   Include the JWT token in the `Authorization` header.
-    *   View a list of all teachers or students.
-5. **Delete a user**
-    * Go to the view of users.
-    * Click on delete for the desired user.
-    * A `DELETE` request is sent to `/admin/users/<user_id>`.
-6.  **View All Results:**
-    *   Navigate to `/admin/results/all`.
-    *   Include the JWT token in the `Authorization` header.
-    *   View all exam results.
-7. **Trigger AI Evaluation**
-    * Select the response to evaluate.
-    * Click on the evaluate button.
-    * A `POST` request is sent to `/admin/evaluate/response/<response_id>`.
-8. **Logout**
-    *   Navigate to `/auth/logout`.
-    * Include the JWT token in the `Authorization` header.
-
-### Teacher User Flow
-
-1.  **Login:**
-    *   Navigate to the login page.
-    *   Enter teacher credentials.
-    *   Submit the login form.
-    *   Receive a JWT token.
-2.  **Access Teacher Dashboard:**
-    *   Navigate to `/teacher/dashboard`.
-    *   Include the JWT token in the `Authorization` header.
-    *   View teacher-specific statistics (number of exams created).
-3.  **Create Exam:**
-    *   Navigate to `/teacher/exams`.
-    *   Include the JWT token in the `Authorization` header.
-    *   Fill in exam details (title, description, scheduled time, duration).
-    *   Submit the form.
-    *   A `POST` request is sent to `/teacher/exams`.
-4.  **Manage Exams:**
-    *   Navigate to `/teacher/exams`.
-    *   Include the JWT token in the `Authorization` header.
-    *   View a list of created exams.
-    *   Click on an exam to view details (sends a `GET` request to `/teacher/exams/<exam_id>`).
-    *   Click "Edit" to update an exam (sends a `PUT` request to `/teacher/exams/<exam_id>`).
-    *   Click "Delete" to delete an exam (sends a `DELETE` request to `/teacher/exams/<exam_id>`).
-5.  **Add Questions:**
-    *   Navigate to `/teacher/exams/<exam_id>/questions`.
-    *   Include the JWT token in the `Authorization` header.
-    *   Fill in question details (text, type, marks, options, correct answer).
-    *   Submit the form.
-    *   A `POST` request is sent to `/teacher/exams/<exam_id>/questions`.
-6.  **Manage Questions:**
-    *   Navigate to `/teacher/exams/<exam_id>/questions`.
-    *   Include the JWT token in the `Authorization` header.
-    *   View a list of exam questions (sends a `GET` request to `/teacher/exams/<exam_id>/questions`).
-    *   Click "Edit" to update a question (sends a `PUT` request to `/teacher/exams/<exam_id>/questions/<question_id>`).
-    *   Click "Delete" to delete a question (sends a `DELETE` request to `/teacher/exams/<exam_id>/questions/<question_id>`).
-7.  **View Results:**
-    *   Navigate to `/teacher/exams/results/<exam_id>`.
-    *   Include the JWT token in the `Authorization` header.
-    *   View the results for the selected exam.
-8. **Logout**
-    *   Navigate to `/auth/logout`.
-    * Include the JWT token in the `Authorization` header.
-
-### Student User Flow
-
-1.  **Login:**
-    *   Navigate to the login page.
-    *   Enter student credentials.
-    *   Submit the login form.
-    *   Receive a JWT token.
-2.  **Access Student Dashboard:**
-    *   Navigate to `/student/dashboard`.
-    *   Include the JWT token in the `Authorization` header.
-    *   View student-specific statistics (number of completed exams, upcoming exams).
-3.  **View Available Exams:**
-    *   Navigate to `/student/exams/available`.
-    *   Include the JWT token in the `Authorization` header.
-    *   View a list of available exams.
-4.  **Take Exam:**
-    *   Click "Take Exam" next to an available exam.
-    *   A `GET` request is sent to `/student/exams/take/<exam_id>`.
-    *   View exam questions.
-5.  **Submit Exam:**
-    *   Answer all questions.
-    *   Submit the exam.
-    *   A `POST` request is sent to `/student/exams/submit/<exam_id>`, including the answers.
-6.  **View Results:**
-    *   Navigate to `/student/exams/results`.
-    *   Include the JWT token in the `Authorization` header.
-    *   View the results of submitted exams.
-7. **Logout**
-    *   Navigate to `/auth/logout`.
-    * Include the JWT token in the `Authorization` header.
+Remember to replace placeholders like <user_id>, <exam_id>, <question_id>, <response_id>, and <YOUR_JWT_TOKEN> with actual values during testing. Good luck!
