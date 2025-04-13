@@ -1,46 +1,94 @@
 import os
-from flask import Flask
-from flask_sqlalchemy import SQLAlchemy
-from flask_migrate import Migrate
-from flask_jwt_extended import JWTManager
-from flask_cors import CORS
+from flask import Flask, jsonify
+from werkzeug.exceptions import HTTPException # Import HTTPException
+from marshmallow import ValidationError # Import ValidationError
 
-from .config import config_by_name
+from .config import get_config
+from .extensions import db, migrate, ma, jwt, cors, bcrypt
+from . import models # Import models to register them with SQLAlchemy
 
-# Initialize extensions without app context
-db = SQLAlchemy()
-migrate = Migrate()
-jwt = JWTManager()
-cors = CORS()
-
-def create_app(config_name=None):
+def create_app():
     """Application Factory Function"""
-    if config_name is None:
-        config_name = os.getenv('FLASK_CONFIG', 'dev') # Default to 'dev' if not set
+    app = Flask(__name__, instance_relative_config=True)
 
-    app = Flask(__name__)
-    app.config.from_object(config_by_name[config_name])
+    # --- Load Configuration ---
+    config = get_config()
+    app.config.from_object(config)
 
-    # Initialize extensions with app context
+    # Ensure the instance folder exists (for SQLite)
+    try:
+        os.makedirs(app.instance_path)
+    except OSError:
+        pass # Already exists
+
+    # --- Initialize Extensions ---
     db.init_app(app)
     migrate.init_app(app, db)
+    ma.init_app(app)
     jwt.init_app(app)
-    cors.init_app(app, resources={r"/api/*": {"origins": "*"}}) # Allow all origins for /api/* routes
+    bcrypt.init_app(app)
+    # Initialize CORS with config settings or defaults
+    cors.init_app(app, resources=app.config.get('CORS_RESOURCES', {r"/api/*": {"origins": "*"}}))
 
-    # Import models here to ensure they are known to Flask-Migrate
-    from . import models
+    # --- Register Blueprints ---
+    with app.app_context():
+        from .resources import auth, exams, questions, submissions
 
-    # Register Blueprints
-    from .routers.auth import auth_bp
-    from .routers.teacher import teacher_bp
-    from .routers.student import student_bp
+        app.register_blueprint(auth.bp) # Prefix defined in auth.py
+        app.register_blueprint(exams.bp) # Prefix defined in exams.py
+        app.register_blueprint(questions.bp) # Prefix defined in questions.py (includes /exams/<id>)
+        app.register_blueprint(submissions.bp) # Prefix defined in submissions.py
 
-    app.register_blueprint(auth_bp, url_prefix='/api/auth')
-    app.register_blueprint(teacher_bp, url_prefix='/api/teacher')
-    app.register_blueprint(student_bp, url_prefix='/api/student')
+        # --- Database Creation (for development/testing convenience) ---
+        # In production, rely solely on Flask-Migrate upgrade commands
+        if app.config['DEBUG'] or app.config['TESTING']:
+             # Check if tables exist before creating - avoids issues if run multiple times
+             # inspector = db.inspect(db.engine)
+             # if not inspector.has_table("user"): # Check for one table
+             #     print("Creating database tables...")
+             #     db.create_all()
+             # Rely on migrations is generally better practice even in dev
+             pass
 
-    @app.route('/')
-    def index():
-        return "Exam Evaluation API Backend is running!"
+    # --- Global Error Handlers ---
+    @app.errorhandler(HTTPException)
+    def handle_http_exception(e):
+        """Return JSON instead of HTML for HTTP errors."""
+        response = e.get_response()
+        response.data = jsonify({
+            "code": e.code,
+            "name": e.name,
+            "message": e.description, # Use description for message
+        }).data
+        response.content_type = "application/json"
+        return response
+
+    @app.errorhandler(ValidationError)
+    def handle_marshmallow_validation(err):
+        """Catch Marshmallow validation errors globally."""
+        return jsonify(errors=err.messages), 400
+
+    @app.errorhandler(Exception)
+    def handle_generic_exception(e):
+        """Handle unexpected errors."""
+        # Log the error in production
+        app.logger.error(f"Unhandled Exception: {str(e)}", exc_info=True)
+
+        # Return a generic 500 error in production
+        if not app.config['DEBUG'] and not app.config['TESTING']:
+            return jsonify(message="An internal server error occurred"), 500
+
+        # Return detailed error in debug/testing
+        return jsonify(
+            message="An unexpected error occurred",
+            error=str(e)
+        ), 500
+
+
+    # --- Shell Context Processor (Optional) ---
+    @app.shell_context_processor
+    def make_shell_context():
+        return {'db': db, 'User': models.User, 'Exam': models.Exam, 'Question': models.Question,
+                'Option': models.Option, 'Submission': models.Submission, 'Answer': models.Answer}
 
     return app

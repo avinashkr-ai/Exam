@@ -1,10 +1,13 @@
-Flask
-Flask-SQLAlchemy
-Flask-Migrate
-Flask-JWT-Extended
-Flask-Cors
-psycopg2-binary
-python-dotenv
-google-generativeai
-Werkzeug
-bcrypt
+Flask>=2.0
+Flask-SQLAlchemy>=2.5
+Flask-Migrate>=3.0
+Flask-RESTful>=0.3 # Or remove if only using Blueprints
+Flask-JWT-Extended>=4.0
+Flask-Cors>=3.0
+python-dotenv>=0.15
+Flask-Bcrypt>=1.0 # Updated
+Flask-Marshmallow>=0.14
+marshmallow-sqlalchemy>=0.24
+Werkzeug>=2.0 # Often needed with recent Flask versions
+datetime
+pytz # Good for timezone handling if needed
