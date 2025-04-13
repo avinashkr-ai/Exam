@@ -1,44 +1,57 @@
 # app/routes/admin.py
 from flask import Blueprint, request, jsonify
-from app import db
-from app.models import User, UserRole, Exam, StudentResponse, Evaluation, Question # Added Question
+# Ensure db is imported correctly
+from app.extensions import db
+from app.models import User, UserRole, Exam, StudentResponse, Evaluation, Question # Added Question, make sure QuestionType is imported if needed
 from app.utils.decorators import admin_required, verified_required
 from app.utils.helpers import get_current_user_id
 from flask_jwt_extended import jwt_required
+# Import AI evaluation service if needed within endpoint
+# from app.services.ai_evaluation import evaluate_response_with_gemini
 
 # Define blueprint only once
 bp = Blueprint('admin', __name__)
 
 @bp.route('/dashboard', methods=['GET'])
-@jwt_required()
-@admin_required
-@verified_required
+@jwt_required()      # 1. Verify JWT is present and valid
+@admin_required      # 2. Check if identity user has ADMIN role (prints identity info)
+@verified_required   # 3. Check if identity user is verified (prints identity info)
 def dashboard():
-    # Enhanced stats
-    teacher_count = User.query.filter_by(role=UserRole.TEACHER, is_verified=True).count()
-    student_count = User.query.filter_by(role=UserRole.STUDENT, is_verified=True).count()
-    pending_users_count = User.query.filter_by(is_verified=False).filter(User.role != UserRole.ADMIN).count()
-    exam_count = Exam.query.count()
-    total_responses_count = StudentResponse.query.count()
-    evaluated_responses_count = Evaluation.query.count()
-    pending_evaluations_count = total_responses_count - evaluated_responses_count
+    # ---- DEBUG PRINT ---
+    print(f"\n*** Successfully reached admin dashboard endpoint execution ***")
+    current_admin_id = get_current_user_id()
+    print(f"Admin user ID confirmed in dashboard: {current_admin_id}")
+    # --- END DEBUG ---
+    if not current_admin_id:
+        # This check is belt-and-suspenders, decorators should catch this.
+        return jsonify({"msg": "Could not identify requesting admin user."}), 401
 
-    # Optional: Add count of MCQs vs Subjective questions if needed
-    # mcq_count = Question.query.filter_by(question_type=QuestionType.MCQ).count()
-    # subjective_count = Question.query.filter(Question.question_type != QuestionType.MCQ).count()
+    try:
+        # Enhanced stats
+        teacher_count = User.query.filter_by(role=UserRole.TEACHER, is_verified=True).count()
+        student_count = User.query.filter_by(role=UserRole.STUDENT, is_verified=True).count()
+        pending_users_count = User.query.filter_by(is_verified=False).filter(User.role != UserRole.ADMIN).count()
+        exam_count = Exam.query.count()
+        total_responses_count = StudentResponse.query.count()
+        evaluated_responses_count = Evaluation.query.count()
+        # Ensure pending count doesn't go negative if somehow evaluated > total
+        pending_evaluations_count = max(0, total_responses_count - evaluated_responses_count)
 
-    return jsonify({
-        "message": "Admin Dashboard",
-        "active_teachers": teacher_count,
-        "active_students": student_count,
-        "pending_verifications": pending_users_count,
-        "total_exams": exam_count,
-        "total_responses_submitted": total_responses_count,
-        "responses_evaluated": evaluated_responses_count,
-        "responses_pending_evaluation": pending_evaluations_count
-        # "mcq_questions": mcq_count,
-        # "subjective_questions": subjective_count
-    }), 200
+        return jsonify({
+            "message": "Admin Dashboard",
+            "active_teachers": teacher_count,
+            "active_students": student_count,
+            "pending_verifications": pending_users_count,
+            "total_exams": exam_count,
+            "total_responses_submitted": total_responses_count,
+            "responses_evaluated": evaluated_responses_count,
+            "responses_pending_evaluation": pending_evaluations_count
+        }), 200
+    except Exception as e:
+        print(f"!!! Error executing admin dashboard logic for admin {current_admin_id}: {e}")
+        # import traceback; traceback.print_exc() # Uncomment for detailed traceback
+        return jsonify({"msg": "An error occurred while retrieving dashboard statistics."}), 500
+
 
 # --- User Management ---
 @bp.route('/users/pending', methods=['GET'])
@@ -46,15 +59,25 @@ def dashboard():
 @admin_required
 @verified_required
 def get_pending_users():
-    pending = User.query.filter_by(is_verified=False).filter(User.role != UserRole.ADMIN).order_by(User.created_at.asc()).all() # Added ordering
-    users_data = [{"id": u.id, "name": u.name, "email": u.email, "role": u.role.name, "registered_at": u.created_at.isoformat()} for u in pending]
-    return jsonify(users_data), 200
+    # ---- DEBUG PRINT ---
+    print(f"\n*** Reached get_pending_users endpoint ***")
+    # --- END DEBUG ---
+    try:
+        pending = User.query.filter_by(is_verified=False).filter(User.role != UserRole.ADMIN).order_by(User.created_at.asc()).all()
+        users_data = [{"id": u.id, "name": u.name, "email": u.email, "role": u.role.name, "registered_at": u.created_at.isoformat()} for u in pending]
+        return jsonify(users_data), 200
+    except Exception as e:
+        print(f"!!! Error fetching pending users: {e}")
+        return jsonify({"msg": "Error fetching pending users."}), 500
 
 @bp.route('/users/verify/<int:user_id>', methods=['POST'])
 @jwt_required()
 @admin_required
 @verified_required
 def verify_user(user_id):
+    # ---- DEBUG PRINT ---
+    print(f"\n*** Reached verify_user endpoint for user_id: {user_id} ***")
+    # --- END DEBUG ---
     user = User.query.get(user_id)
     if not user:
         return jsonify({"msg": "User not found"}), 404
@@ -63,37 +86,65 @@ def verify_user(user_id):
     if user.is_verified:
         return jsonify({"msg": "User already verified"}), 400
 
-    user.is_verified = True
-    db.session.commit()
-    # Optional: Add notification logic here later (e.g., email the user)
-    return jsonify({"msg": f"User {user.email} verified successfully"}), 200
+    try:
+        user.is_verified = True
+        db.session.commit()
+        print(f"--- User {user.email} (ID: {user_id}) verified successfully by admin {get_current_user_id()} ---")
+        # Optional: Add notification logic here later (e.g., email the user)
+        return jsonify({"msg": f"User {user.email} verified successfully"}), 200
+    except Exception as e:
+        db.session.rollback()
+        print(f"!!! Error verifying user {user_id}: {e}")
+        return jsonify({"msg": "Failed to verify user due to server error."}), 500
+
 
 @bp.route('/teachers', methods=['GET'])
 @jwt_required()
 @admin_required
 @verified_required
 def get_all_teachers():
-    teachers = User.query.filter_by(role=UserRole.TEACHER).order_by(User.name).all()
-    teachers_data = [{"id": u.id, "name": u.name, "email": u.email, "is_verified": u.is_verified} for u in teachers]
-    return jsonify(teachers_data), 200
+    # ---- DEBUG PRINT ---
+    print(f"\n*** Reached get_all_teachers endpoint ***")
+    # --- END DEBUG ---
+    try:
+        teachers = User.query.filter_by(role=UserRole.TEACHER).order_by(User.name).all()
+        teachers_data = [{"id": u.id, "name": u.name, "email": u.email, "is_verified": u.is_verified} for u in teachers]
+        return jsonify(teachers_data), 200
+    except Exception as e:
+        print(f"!!! Error fetching teachers: {e}")
+        return jsonify({"msg": "Error fetching teachers."}), 500
+
 
 @bp.route('/students', methods=['GET'])
+@jwt_required() # Ensure JWT is always checked first
 @admin_required
-@jwt_required()
 @verified_required
 def get_all_students():
-    # Removed duplicate query
-    students = User.query.filter_by(role=UserRole.STUDENT).order_by(User.name).all()
-    students_data = [{"id": u.id, "name": u.name, "email": u.email, "is_verified": u.is_verified} for u in students]
-    return jsonify(students_data), 200
+    # ---- DEBUG PRINT ---
+    print(f"\n*** Reached get_all_students endpoint ***")
+    # --- END DEBUG ---
+    try:
+        students = User.query.filter_by(role=UserRole.STUDENT).order_by(User.name).all()
+        students_data = [{"id": u.id, "name": u.name, "email": u.email, "is_verified": u.is_verified} for u in students]
+        return jsonify(students_data), 200
+    except Exception as e:
+        print(f"!!! Error fetching students: {e}")
+        return jsonify({"msg": "Error fetching students."}), 500
+
 
 @bp.route('/users/<int:user_id>', methods=['DELETE'])
-@admin_required
 @jwt_required()
+@admin_required
 @verified_required
 def delete_user(user_id):
-    # Ensure admin cannot delete themselves - get current admin ID
+    # ---- DEBUG PRINT ---
+    print(f"\n*** Reached delete_user endpoint for user_id: {user_id} ***")
+    # --- END DEBUG ---
     current_admin_id = get_current_user_id()
+    if not current_admin_id:
+         # Should be caught by decorators, but for safety
+         return jsonify({"msg": "Could not identify requesting admin user."}), 401
+
     if user_id == current_admin_id:
         return jsonify({"msg": "Admin cannot delete themselves"}), 403
 
@@ -101,134 +152,154 @@ def delete_user(user_id):
     if not user:
         return jsonify({"msg": "User not found"}), 404
     if user.role == UserRole.ADMIN:
-        # Additional check just in case
+        # Additional check just in case logic changes elsewhere
         return jsonify({"msg": "Deleting other Admins is restricted via this endpoint"}), 403
 
-    # Handle related data - cascade should work based on models.py settings
-    # If cascade isn't set correctly, you might need manual deletion of related records
-    # e.g., exams created by a teacher, responses by a student
-    email_deleted = user.email # Store email for message before deleting
-    db.session.delete(user)
-    db.session.commit()
-    return jsonify({"msg": f"User {email_deleted} deleted successfully"}), 200
+    try:
+        # Handle related data - cascade should work based on models.py settings
+        # If cascade isn't set correctly, you might need manual deletion of related records
+        email_deleted = user.email # Store email for message before deleting
+        db.session.delete(user)
+        db.session.commit()
+        print(f"--- User {email_deleted} (ID: {user_id}) deleted successfully by admin {current_admin_id} ---")
+        return jsonify({"msg": f"User {email_deleted} deleted successfully"}), 200
+    except Exception as e:
+        db.session.rollback()
+        print(f"!!! Error deleting user {user_id}: {e}")
+        return jsonify({"msg": "Failed to delete user due to server error."}), 500
+
 
 # --- Results/Evaluation ---
 
 @bp.route('/results/all', methods=['GET'])
-@admin_required
 @jwt_required()
+@admin_required
 @verified_required
 def get_all_results():
-    # Consider adding pagination args: request.args.get('page', 1, type=int), request.args.get('per_page', 20, type=int)
-    page = request.args.get('page', 1, type=int)
-    per_page = request.args.get('per_page', 20, type=int)
+    # ---- DEBUG PRINT ---
+    print(f"\n*** Reached get_all_results endpoint ***")
+    # --- END DEBUG ---
+    try:
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 20, type=int)
 
-    evaluations_query = Evaluation.query.join(StudentResponse).join(User, StudentResponse.student_id == User.id)\
-                                     .join(Exam, StudentResponse.exam_id == Exam.id)\
-                                     .join(Question, StudentResponse.question_id == Question.id)\
-                                     .add_columns(
-                                         Evaluation.id,
-                                         User.name.label("student_name"),
-                                         User.email.label("student_email"),
-                                         Exam.title.label("exam_title"),
-                                         Question.question_text,
-                                         Evaluation.marks_awarded,
-                                         Evaluation.evaluated_by,
-                                         Evaluation.evaluated_at
-                                     ).order_by(Evaluation.evaluated_at.desc())
+        evaluations_query = Evaluation.query.join(StudentResponse).join(User, StudentResponse.student_id == User.id)\
+                                        .join(Exam, StudentResponse.exam_id == Exam.id)\
+                                        .join(Question, StudentResponse.question_id == Question.id)\
+                                        .add_columns(
+                                            Evaluation.id.label("evaluation_id"),
+                                            User.name.label("student_name"),
+                                            User.email.label("student_email"),
+                                            Exam.title.label("exam_title"),
+                                            Question.question_text,
+                                            Evaluation.marks_awarded,
+                                            Evaluation.evaluated_by,
+                                            Evaluation.evaluated_at
+                                        ).order_by(Evaluation.evaluated_at.desc())
 
-    paginated_evaluations = evaluations_query.paginate(page=page, per_page=per_page, error_out=False)
-    evaluations = paginated_evaluations.items
+        paginated_evaluations = evaluations_query.paginate(page=page, per_page=per_page, error_out=False)
+        evaluations = paginated_evaluations.items
 
-    results_data = [{
-        "evaluation_id": ev.id,
-        "student_name": ev.student_name,
-        "student_email": ev.student_email,
-        "exam_title": ev.exam_title,
-        "question_text": ev.question_text[:100] + "...", # Truncate more reasonably
-        "marks_awarded": ev.marks_awarded,
-        "evaluated_by": ev.evaluated_by,
-        "evaluated_at": ev.evaluated_at.isoformat() if ev.evaluated_at else None
-    } for ev in evaluations]
+        results_data = [{
+            "evaluation_id": ev.evaluation_id,
+            "student_name": ev.student_name,
+            "student_email": ev.student_email,
+            "exam_title": ev.exam_title,
+            "question_text": ev.question_text[:100] + ("..." if len(ev.question_text) > 100 else ""),
+            "marks_awarded": ev.marks_awarded,
+            "evaluated_by": ev.evaluated_by,
+            "evaluated_at": ev.evaluated_at.isoformat() if ev.evaluated_at else None
+        } for ev in evaluations]
 
-    return jsonify({
-        "results": results_data,
-        "total": paginated_evaluations.total,
-        "pages": paginated_evaluations.pages,
-        "current_page": page
-     }), 200
+        return jsonify({
+            "results": results_data,
+            "total": paginated_evaluations.total,
+            "pages": paginated_evaluations.pages,
+            "current_page": page
+        }), 200
+    except Exception as e:
+        print(f"!!! Error fetching all results: {e}")
+        return jsonify({"msg": "Error fetching results."}), 500
 
 
 @bp.route('/evaluate/response/<int:response_id>', methods=['POST'])
-@verified_required
-@admin_required
 @jwt_required()
+@admin_required
+@verified_required
 def trigger_ai_evaluation(response_id):
-    # Import moved inside to avoid potential circular dependency issues at startup
-    # Consider structuring services differently if this becomes a problem
+    # ---- DEBUG PRINT ---
+    print(f"\n*** Reached trigger_ai_evaluation endpoint for response_id: {response_id} ***")
+    # --- END DEBUG ---
+    # Import moved inside to potentially avoid circular dependency issues if service uses models/db
     from app.services.ai_evaluation import evaluate_response_with_gemini
 
     admin_id = get_current_user_id()
-    # Handle case where get_current_user_id might return None (though unlikely if JWT is valid)
     if not admin_id:
         return jsonify({"msg": "Could not identify requesting admin user."}), 401
 
-    response = StudentResponse.query.get(response_id)
+    response = StudentResponse.query.options(
+        joinedload(StudentResponse.question), # Eager load question
+        joinedload(StudentResponse.evaluation) # Eager load evaluation
+    ).get(response_id)
 
     if not response:
         return jsonify({"msg": "Student response not found"}), 404
     if response.evaluation:
         # Allow re-evaluation? Maybe add a flag/parameter to force it?
         # For now, prevent re-evaluation.
+        print(f"--- Attempt to re-evaluate response {response_id} blocked (already evaluated). Admin: {admin_id} ---")
         return jsonify({"msg": f"This response (ID: {response_id}) has already been evaluated."}), 400
 
     question = response.question
     if not question:
+         # This shouldn't happen with eager loading if response exists, but safety check
+         print(f"!!! Could not find question associated with response ID: {response_id}")
          return jsonify({"msg": f"Could not find question associated with response ID: {response_id}"}), 404
 
-    # Ensure response text is not empty or null before sending to AI
     if not response.response_text or not response.response_text.strip():
-        # Automatically assign 0 marks? Or just return error?
-        # Let's assign 0 marks and note it was empty.
-        evaluation = Evaluation(
-                response_id=response_id,
-                evaluated_by=f"System (Empty Response - Admin Trigger: {admin_id})",
-                marks_awarded=0.0,
-                feedback="Student response was empty."
-            )
-        db.session.add(evaluation)
-        db.session.commit()
-        return jsonify({
-                "msg": "AI evaluation skipped: Student response was empty. Marked as 0.",
-                "evaluation_id": evaluation.id,
-                "marks_awarded": 0.0,
-                "feedback": "Student response was empty."
-            }), 200
-
+        print(f"--- Evaluating response {response_id} as 0 marks (empty response text). Admin: {admin_id} ---")
+        try:
+            evaluation = Evaluation(
+                    response_id=response_id,
+                    evaluated_by=f"System (Empty Response - Admin Trigger: {admin_id})",
+                    marks_awarded=0.0,
+                    feedback="Student response was empty."
+                )
+            db.session.add(evaluation)
+            db.session.commit()
+            return jsonify({
+                    "msg": "AI evaluation skipped: Student response was empty. Marked as 0.",
+                    "evaluation_id": evaluation.id,
+                    "marks_awarded": 0.0,
+                    "feedback": "Student response was empty."
+                }), 200
+        except Exception as e:
+             db.session.rollback()
+             print(f"!!! Error saving 0-mark evaluation for empty response {response_id}: {e}")
+             return jsonify({"msg": "Failed to process empty response due to server error."}), 500
 
     # Call the evaluation service function
     try:
-        print(f"Admin {admin_id} triggering AI evaluation for response {response_id}")
+        print(f"--- Admin {admin_id} triggering AI evaluation via service for response {response_id} ---")
         marks, feedback = evaluate_response_with_gemini(
             question_text=question.question_text,
-            student_answer=response.response_text, # Use student_answer consistently
+            student_answer=response.response_text, # Use student_answer consistently if service expects it
             word_limit=question.word_limit,
             max_marks=question.marks,
-            question_type=question.question_type.name
+            question_type=question.question_type.name # Pass enum name like 'SHORT_ANSWER'
         )
 
         if marks is not None and feedback is not None:
-             # Store the evaluation
+            print(f"--- AI Service returned marks: {marks}, feedback snippet: '{feedback[:50]}...' for response {response_id} ---")
             evaluation = Evaluation(
                 response_id=response_id,
                 evaluated_by=f"AI_Gemini (Admin Trigger: {admin_id})",
                 marks_awarded=marks,
                 feedback=feedback
-                # evaluated_at is set by default
             )
             db.session.add(evaluation)
             db.session.commit()
-            print(f"Successfully evaluated response {response_id}. Marks: {marks}")
+            print(f"--- Successfully evaluated and saved response {response_id}. Evaluation ID: {evaluation.id} ---")
             return jsonify({
                 "msg": "AI evaluation successful",
                 "evaluation_id": evaluation.id,
@@ -236,14 +307,11 @@ def trigger_ai_evaluation(response_id):
                 "feedback": feedback
             }), 200
         else:
-            # The service function returned None or partial data, indicating an error during evaluation
-            # Feedback might contain the error message from the service layer
-            print(f"AI evaluation failed for response {response_id}. Details: {feedback}")
-            return jsonify({"msg": "AI evaluation failed. Check logs.", "details": feedback or "Unknown evaluation service error"}), 500
+            print(f"!!! AI evaluation service failed for response {response_id}. Returned None or partial data. Details: {feedback}")
+            return jsonify({"msg": "AI evaluation failed. Check server logs.", "details": feedback or "Unknown evaluation service error"}), 500
 
     except Exception as e:
-        # Log the exception e
-        print(f"Error during AI evaluation trigger endpoint for response {response_id}: {e}")
-        # Optionally log traceback: import traceback; traceback.print_exc()
-        db.session.rollback() # Rollback any potential partial transaction
+        db.session.rollback()
+        print(f"!!! Exception during AI evaluation trigger endpoint for response {response_id}: {e}")
+        # import traceback; traceback.print_exc() # Uncomment for detailed traceback
         return jsonify({"msg": f"An internal server error occurred during AI evaluation trigger: {e}"}), 500
