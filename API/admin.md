@@ -1,0 +1,39 @@
+Okay, here is the updated API documentation specifically for the **Admin** role, reflecting the latest code structure and incorporating the JWT custom claims logic.
+
+---
+
+## Online Exam Portal - Admin API Documentation (Updated)
+
+**Base URL:** (Your running server, e.g., `http://127.0.0.1:5000`)
+
+**Authentication:** All Admin endpoints require:
+
+1.  A valid JWT Access Token in the `Authorization: Bearer <TOKEN>` header.
+2.  The user associated with the token must have the `Admin` role (verified via custom claims).
+3.  The user associated with the token must be `verified` (checked against the database).
+
+---
+
+### 🧑‍💼 Admin APIs
+
+| Method | Endpoint                         | Description                                                 | Request Body (JSON) | Path/Query Params             | Success Response (200 OK)                                                                                                                                                                                                    | Error Responses                                                                                                                                                                                             |
+| :----- | :------------------------------- | :---------------------------------------------------------- | :------------------ | :---------------------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GET    | `/admin/dashboard`               | Get admin dashboard statistics.                             | None                | None                          | `{"message": "Admin Dashboard", "active_teachers": 5, "active_students": 50, "pending_verifications": 3, "total_exams": 15, "total_responses_submitted": 250, "responses_evaluated": 200, "responses_pending_evaluation": 50}` | `401 Unauthorized` (No/Invalid Token, Missing/Invalid Claims), `403 Forbidden` (Wrong Role/Not Verified)                                                                                                  |
+| GET    | `/admin/users/pending`           | Get list of users awaiting verification (ordered by registration date). | None                | None                          | `[{"id": 2, "name": "Pending Teacher", "email": "pending.t@example.com", "role": "Teacher", "registered_at": "2024-01-10T10:00:00"}, ...]`                                                                                  | `401/403`                                                                                                                                                                                                   |
+| POST   | `/admin/users/verify/<user_id>` | Verify a registered Teacher or Student account.               | None                | `user_id` (int)               | `{"msg": "User pending.t@example.com verified successfully"}`                                                                                                                                                               | `401/403`, `404 Not Found` (User ID), `400 Bad Request` (User already verified or trying to verify Admin)                                                                                                    |
+| GET    | `/admin/teachers`                | Get list of all registered teachers (ordered by name).        | None                | None                          | `[{"id": 3, "name": "Teacher One", "email": "teacher1@example.com", "is_verified": true}, ...]`                                                                                                                            | `401/403`                                                                                                                                                                                                   |
+| GET    | `/admin/students`                | Get list of all registered students (ordered by name).        | None                | None                          | `[{"id": 4, "name": "Student One", "email": "student1@example.com", "is_verified": true}, ...]`                                                                                                                            | `401/403`                                                                                                                                                                                                   |
+| DELETE | `/admin/users/<user_id>`        | Delete a Teacher or Student user (cannot delete self/other admins). | None                | `user_id` (int)               | `{"msg": "User student1@example.com deleted successfully"}`                                                                                                                                                                  | `401/403` (Auth, Trying to delete self/Admin), `404 Not Found` (User ID)                                                                                                                                   |
+| GET    | `/admin/results/all`             | Get all evaluated results (paginated, ordered by evaluation date desc). | None                | `?page=1&per_page=20` (Optional) | `{"results": [{"evaluation_id": 1, "student_name": "S Name", "student_email": "s@e.com", "exam_title": "Exam 1", "question_text": "What is...?", "marks_awarded": 4.5, "evaluated_by": "AI_Gemini (Admin Trigger: 1)", "evaluated_at": "..."}], "total": 150, "pages": 8, "current_page": 1}` | `401/403`                                                                                                                                                                                                   |
+| POST   | `/admin/evaluate/response/<response_id>` | Trigger AI evaluation for a specific student response.       | None                | `response_id` (int)           | **Success:** `{"msg": "AI evaluation successful", "evaluation_id": 12, "marks_awarded": 4.0, "feedback": "Good explanation..."}`<br/>**Empty Response:** `{"msg": "AI evaluation skipped: Student response was empty. Marked as 0.", "evaluation_id": 13, ...}` | `401/403`, `404 Not Found` (Response ID or related Question), `400 Bad Request` (Already evaluated), `500 Internal Server Error` (AI API call failure, parsing error, DB error saving evaluation, other exception) |
+
+---
+
+**Notes:**
+
+*   Error responses like `401 Unauthorized` generally cover cases where the JWT is missing, invalid, expired, or doesn't contain the expected claims.
+*   Error responses like `403 Forbidden` generally cover cases where the JWT is valid, but the user's role or verification status doesn't permit the action.
+*   The `/admin/evaluate/response/<response_id>` endpoint now handles empty responses by automatically assigning 0 marks and appropriate feedback.
+*   Pagination parameters (`page`, `per_page`) are optional for `/admin/results/all`.
+
+This should provide a clear guide for testing the Admin functionalities.

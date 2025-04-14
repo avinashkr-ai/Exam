@@ -1,0 +1,36 @@
+Okay, here is the API documentation specifically for the **Student** role, reflecting the latest code which should be functioning correctly.
+
+---
+
+## Online Exam Portal - Student API Documentation (Updated)
+
+**Base URL:** (Your running server, e.g., `http://127.0.0.1:5000`)
+
+**Authentication:** All Student endpoints require:
+
+1.  A valid JWT Access Token in the `Authorization: Bearer <TOKEN>` header.
+2.  The user associated with the token must have the `Student` role (verified via custom claims).
+3.  The user associated with the token must be `verified` (checked against the database).
+
+---
+
+### 🎓 Student APIs
+
+| Method | Endpoint                   | Description                                                          | Request Body (JSON)                                                                                                | Path/Query Params | Success Response (200 OK)                                                                                                                                                                                                 | Error Responses                                                                                                                                                                                          |
+| :----- | :------------------------- | :------------------------------------------------------------------- | :----------------------------------------------------------------------------------------------------------------- | :---------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GET    | `/student/dashboard`       | Get student dashboard statistics (completed & upcoming exams).        | None                                                                                                               | None              | `{"message": "Student Dashboard", "completed_exams_count": 3, "upcoming_exams": [{"id": 26, "title": "Final Exam", "scheduled_time": "..."}]}`                                                                       | `401 Unauthorized` (No/Invalid Token, Missing/Invalid Claims), `403 Forbidden` (Wrong Role/Not Verified)                                                                                                   |
+| GET    | `/student/exams/available` | Get list of exams that are Upcoming or Active *and* not yet submitted by the student. | None                                                                                                               | None              | `[{"id": 26, "title": "Final Exam", "description": "...", "scheduled_time": "...", "duration": 120, "status": "Active"}, {"id": 27, "title": "Quiz 3", ..., "status": "Upcoming"}]` *(List will be empty if none are available/unsubmitted)* | `401/403`                                                                                                                                                                                                |
+| GET    | `/student/exams/<exam_id>/take` | Get questions for an *active* exam the student hasn't submitted.     | None                                                                                                               | `exam_id` (int)   | `{"exam_id": 26, "exam_title": "Final Exam", "questions": [{"id": 105, "question_text": "...", "question_type": "MCQ", "marks": 2, "options": {"A": "...", "B": "..."}, "word_limit": null}, {"id": 106, ..., "question_type": "Short Answer", "marks": 5, "options": null, "word_limit": 100}], "time_remaining_seconds": 3590}` *(options only for MCQ, correct_answer never included)* | `401/403` (Auth, Exam not active, Exam already submitted by this student), `404 Not Found` (Exam ID)                                                                                                    |
+| POST   | `/student/exams/<exam_id>/submit` | Submit answers for an exam before the deadline.                 | `{"answers": [{"question_id": 105, "response_text": "A"}, {"question_id": 106, "response_text": "This is my short answer..."}]}` *(List can be empty if submitting no answers)* | `exam_id` (int)   | `{"msg": "Exam submitted successfully."}`                                                                                                                                                                 | `401/403` (Auth, Deadline passed (+grace period), Exam already submitted by this student), `404 Not Found` (Exam ID), `400 Bad Request` (Invalid request format - must be `{"answers": [...]}`), No valid answers found in list |
+| GET    | `/student/results/my`      | Get results for all submitted exams (includes evaluation details if available).  | None                                                                                                               | None              | `[{"exam_id": 25, "exam_title": "Midterm Exam", "exam_scheduled_time": "...", "total_marks_awarded": 8.5, "total_marks_possible": 12, "questions": [{"question_id": 101, "question_type": "MCQ", "your_response": "B", "marks_awarded": 1.0, "marks_possible": 2, "feedback": "Correct!", ...}, {"question_id": 102, ..., "marks_awarded": null, "feedback": "Not Evaluated Yet", ...}, ...]}, ...]` *(List is ordered by exam date desc)* | `401/403`                                                                                                                                                                                                |
+
+---
+
+**Key Student Workflow Notes:**
+
+1.  **Check Available Exams:** Student calls `GET /student/exams/available`.
+2.  **Start Exam:** If an exam is `"Active"`, the student clicks "Take Exam", triggering `GET /student/exams/<exam_id>/take`. The frontend receives the questions and the `time_remaining_seconds` to start a timer.
+3.  **Submit Exam:** Before the timer runs out (or deadline passes), the student submits answers via `POST /student/exams/<exam_id>/submit`. The request body must contain the `answers` list.
+4.  **View Results:** At any time, the student can call `GET /student/results/my` to see their performance on exams they have submitted. Results for individual questions will appear as they are evaluated (e.g., by an admin triggering AI evaluation). `marks_awarded` will be `null` until evaluation occurs.
+
+This documentation should provide a complete overview for testing the student endpoints.

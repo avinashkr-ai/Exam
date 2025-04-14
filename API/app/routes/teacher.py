@@ -1,220 +1,125 @@
 # app/routes/teacher.py
 from flask import Blueprint, request, jsonify
-# Make sure db is imported correctly based on your project structure
-# If using extensions.py: from app.extensions import db
-# If db is initialized directly in __init__.py: from app import db
+# Ensure db is imported correctly
 from app.extensions import db
 from app.models import Exam, Question, QuestionType, StudentResponse, Evaluation, UserRole
 from app.utils.decorators import teacher_required, verified_required
 from flask_jwt_extended import jwt_required
 from app.utils.helpers import get_current_user_id
-from datetime import datetime, timezone, timedelta # Added timezone and timedelta
-from sqlalchemy.orm import joinedload # Explicit import for clarity
+from datetime import datetime, timezone, timedelta
+from sqlalchemy.orm import joinedload, Session # Added Session for type hinting if desired
 
 bp = Blueprint('teacher', __name__)
+
+# --- Dashboard and Exam Management (Assumed Correct from Previous Version) ---
 
 @bp.route('/dashboard', methods=['GET'])
 @jwt_required()
 @teacher_required
 @verified_required
 def dashboard():
+    # (Code from previous correct version)
     teacher_id = get_current_user_id()
-    if not teacher_id:
-        return jsonify({"msg": "Invalid authentication token or unable to identify user."}), 401
+    if not teacher_id: return jsonify({"msg": "Invalid authentication token"}), 401
     try:
         exam_count = Exam.query.filter_by(created_by=teacher_id).count()
-        return jsonify({
-            "message": "Teacher Dashboard",
-            "my_exams_count": exam_count
-        }), 200
-    except Exception as e:
-        print(f"Error fetching teacher dashboard data for teacher {teacher_id}: {e}")
-        return jsonify({"msg": "Error fetching dashboard data."}), 500
-
-# --- Exam Management ---
+        return jsonify({"message": "Teacher Dashboard", "my_exams_count": exam_count}), 200
+    except Exception as e: print(f"Error teacher dashboard: {e}"); return jsonify({"msg": "Error fetching data."}), 500
 
 @bp.route('/exams', methods=['POST'])
 @jwt_required()
 @teacher_required
 @verified_required
 def create_exam():
-    data = request.get_json()
-    teacher_id = get_current_user_id()
-    if not teacher_id:
-        return jsonify({"msg": "Invalid authentication token or unable to identify user."}), 401
-
-    title = data.get('title')
-    description = data.get('description')
-    scheduled_time_str = data.get('scheduled_time')
-    duration = data.get('duration') # In minutes
-
-    if not all([title, scheduled_time_str, duration]):
-        return jsonify({"msg": "Missing required fields: title, scheduled_time, duration"}), 400
-
+    # (Code from previous correct version)
+    data = request.get_json(); teacher_id = get_current_user_id()
+    if not teacher_id: return jsonify({"msg": "Invalid authentication token"}), 401
+    title = data.get('title'); description = data.get('description'); scheduled_time_str = data.get('scheduled_time'); duration = data.get('duration')
+    if not all([title, scheduled_time_str, duration]): return jsonify({"msg": "Missing fields"}), 400
     try:
         if isinstance(scheduled_time_str, str):
-            if scheduled_time_str.endswith('Z'):
-                 scheduled_time_str = scheduled_time_str[:-1] + '+00:00'
+            if scheduled_time_str.endswith('Z'): scheduled_time_str = scheduled_time_str[:-1] + '+00:00'
             scheduled_time = datetime.fromisoformat(scheduled_time_str)
-            if scheduled_time.tzinfo is None:
-                scheduled_time = scheduled_time.replace(tzinfo=timezone.utc)
-        else:
-            raise ValueError("scheduled_time must be a string.")
-
-        duration = int(duration)
-        if duration <= 0:
-            raise ValueError("Duration must be positive")
-    except (ValueError, TypeError) as e:
-        return jsonify({"msg": f"Invalid data format for scheduled_time (ISO format) or duration (positive integer): {e}"}), 400
-
-    new_exam = Exam(
-        title=title,
-        description=description,
-        scheduled_time=scheduled_time,
-        duration=duration,
-        created_by=teacher_id
-    )
-    try:
-        db.session.add(new_exam)
-        db.session.commit()
-        return jsonify({
-            "msg": "Exam created successfully",
-            "exam_id": new_exam.id,
-            "title": new_exam.title
-            }), 201
-    except Exception as e:
-        db.session.rollback()
-        print(f"Error creating exam for teacher {teacher_id}: {e}")
-        return jsonify({"msg": "Failed to create exam due to server error."}), 500
-
+            if scheduled_time.tzinfo is None: scheduled_time = scheduled_time.replace(tzinfo=timezone.utc)
+        else: raise ValueError("scheduled_time must be string")
+        duration = int(duration); assert duration > 0
+    except (ValueError, TypeError, AssertionError) as e: return jsonify({"msg": f"Invalid format: {e}"}), 400
+    new_exam = Exam(title=title, description=description, scheduled_time=scheduled_time, duration=duration, created_by=teacher_id)
+    try: db.session.add(new_exam); db.session.commit(); return jsonify({"msg": "Exam created", "exam": {"id": new_exam.id, "title": new_exam.title}}), 201
+    except Exception as e: db.session.rollback(); print(f"Error create exam: {e}"); return jsonify({"msg": "Create failed"}), 500
 
 @bp.route('/exams', methods=['GET'])
 @jwt_required()
 @teacher_required
 @verified_required
 def get_my_exams():
+    # (Code from previous correct version)
     teacher_id = get_current_user_id()
-    if not teacher_id:
-        return jsonify({"msg": "Invalid authentication token or unable to identify user."}), 401
+    if not teacher_id: return jsonify({"msg": "Invalid authentication token"}), 401
     try:
         exams = Exam.query.filter_by(created_by=teacher_id).order_by(Exam.scheduled_time.desc()).all()
-        exams_data = [{
-            "id": e.id,
-            "title": e.title,
-            "description": e.description,
-            "scheduled_time": e.scheduled_time.isoformat() if e.scheduled_time else None,
-            "duration": e.duration,
-            "created_at": e.created_at.isoformat() if e.created_at else None
-        } for e in exams]
+        exams_data = [{"id": e.id, "title": e.title, "description": e.description, "scheduled_time": e.scheduled_time.isoformat() if e.scheduled_time else None, "duration": e.duration, "created_at": e.created_at.isoformat() if e.created_at else None} for e in exams]
         return jsonify(exams_data), 200
-    except Exception as e:
-        print(f"Error fetching exams for teacher {teacher_id}: {e}")
-        return jsonify({"msg": "Error fetching exams."}), 500
-
+    except Exception as e: print(f"Error fetching exams: {e}"); return jsonify({"msg": "Error fetching exams."}), 500
 
 @bp.route('/exams/<int:exam_id>', methods=['GET'])
 @jwt_required()
 @teacher_required
 @verified_required
 def get_exam_details(exam_id):
+    # (Code from previous correct version)
     teacher_id = get_current_user_id()
-    if not teacher_id:
-        return jsonify({"msg": "Invalid authentication token or unable to identify user."}), 401
+    if not teacher_id: return jsonify({"msg": "Invalid authentication token"}), 401
     try:
         exam = Exam.query.filter_by(id=exam_id, created_by=teacher_id).first_or_404("Exam not found or access denied")
-        exam_data = {
-            "id": exam.id,
-            "title": exam.title,
-            "description": exam.description,
-            "scheduled_time": exam.scheduled_time.isoformat() if exam.scheduled_time else None,
-            "duration": exam.duration
-        }
+        exam_data = {"id": exam.id, "title": exam.title, "description": exam.description, "scheduled_time": exam.scheduled_time.isoformat() if exam.scheduled_time else None, "duration": exam.duration}
         return jsonify(exam_data), 200
     except Exception as e:
-        if hasattr(e, 'code') and e.code == 404:
-             return jsonify({"msg": "Exam not found or access denied"}), 404
-        print(f"Error fetching details for exam {exam_id}, teacher {teacher_id}: {e}")
-        return jsonify({"msg": "Error fetching exam details."}), 500
-
+        if hasattr(e, 'code') and e.code == 404: return jsonify({"msg": "Exam not found or access denied"}), 404
+        print(f"Error fetching exam details: {e}"); return jsonify({"msg": "Error fetching exam details."}), 500
 
 @bp.route('/exams/<int:exam_id>', methods=['PUT'])
 @jwt_required()
 @teacher_required
 @verified_required
 def update_exam(exam_id):
-    teacher_id = get_current_user_id()
-    if not teacher_id:
-        return jsonify({"msg": "Invalid authentication token or unable to identify user."}), 401
-
+    # (Code from previous correct version)
+    teacher_id = get_current_user_id(); data = request.get_json(); updated = False
+    if not teacher_id: return jsonify({"msg": "Invalid authentication token"}), 401
     exam = Exam.query.filter_by(id=exam_id, created_by=teacher_id).first_or_404("Exam not found or access denied")
-    data = request.get_json()
-    updated = False
-
-    if 'title' in data:
-        exam.title = data['title']
-        updated = True
-    if 'description' in data:
-        exam.description = data['description']
-        updated = True
+    if 'title' in data: exam.title = data['title']; updated = True
+    if 'description' in data: exam.description = data['description']; updated = True
     if 'scheduled_time' in data:
         try:
-            scheduled_time_str = data['scheduled_time']
-            if isinstance(scheduled_time_str, str):
-                if scheduled_time_str.endswith('Z'):
-                    scheduled_time_str = scheduled_time_str[:-1] + '+00:00'
-                scheduled_time = datetime.fromisoformat(scheduled_time_str)
-                if scheduled_time.tzinfo is None:
-                    scheduled_time = scheduled_time.replace(tzinfo=timezone.utc)
-                exam.scheduled_time = scheduled_time
-                updated = True
-            else:
-                 raise ValueError("scheduled_time must be a string.")
-        except (ValueError, TypeError) as e:
-            return jsonify({"msg": f"Invalid scheduled_time format (ISO format expected): {e}"}), 400
+            stime_str=data['scheduled_time'];
+            if isinstance(stime_str, str):
+                if stime_str.endswith('Z'): stime_str=stime_str[:-1]+'+00:00'
+                stime=datetime.fromisoformat(stime_str)
+                if stime.tzinfo is None: stime=stime.replace(tzinfo=timezone.utc)
+                exam.scheduled_time=stime; updated=True
+            else: raise ValueError("scheduled_time must be string")
+        except (ValueError, TypeError) as e: return jsonify({"msg": f"Invalid scheduled_time: {e}"}), 400
     if 'duration' in data:
-        try:
-             duration = int(data['duration'])
-             if duration <= 0:
-                 raise ValueError("Duration must be positive")
-             exam.duration = duration
-             updated = True
-        except (ValueError, TypeError) as e:
-            return jsonify({"msg": f"Invalid duration (must be positive integer): {e}"}), 400
-
-    if not updated:
-        return jsonify({"msg": "No valid fields provided for update."}), 400
-
-    try:
-        db.session.commit()
-        return jsonify({"msg": "Exam updated successfully"}), 200
-    except Exception as e:
-        db.session.rollback()
-        print(f"Error updating exam {exam_id} for teacher {teacher_id}: {e}")
-        return jsonify({"msg": "Failed to update exam due to server error."}), 500
-
+        try: dur=int(data['duration']); assert dur>0; exam.duration=dur; updated=True
+        except (ValueError, TypeError, AssertionError): return jsonify({"msg":"Invalid duration"}), 400
+    if not updated: return jsonify({"msg":"No fields provided"}), 400
+    try: db.session.commit(); return jsonify({"msg":"Exam updated"}), 200
+    except Exception as e: db.session.rollback(); print(f"Error update exam: {e}"); return jsonify({"msg":"Update failed"}), 500
 
 @bp.route('/exams/<int:exam_id>', methods=['DELETE'])
 @jwt_required()
 @teacher_required
 @verified_required
 def delete_exam(exam_id):
-    teacher_id = get_current_user_id()
-    if not teacher_id:
-        return jsonify({"msg": "Invalid authentication token or unable to identify user."}), 401
-
+    # (Code from previous correct version)
+    teacher_id = get_current_user_id();
+    if not teacher_id: return jsonify({"msg": "Invalid authentication token"}), 401
     exam = Exam.query.filter_by(id=exam_id, created_by=teacher_id).first_or_404("Exam not found or access denied")
-
-    try:
-        db.session.delete(exam)
-        db.session.commit()
-        return jsonify({"msg": "Exam and associated data deleted successfully"}), 200
-    except Exception as e:
-        db.session.rollback()
-        print(f"Error deleting exam {exam_id} for teacher {teacher_id}: {e}")
-        return jsonify({"msg": "Failed to delete exam due to server error."}), 500
+    try: db.session.delete(exam); db.session.commit(); return jsonify({"msg": "Exam deleted"}), 200
+    except Exception as e: db.session.rollback(); print(f"Error deleting exam: {e}"); return jsonify({"msg": "Delete failed"}), 500
 
 
-# --- Question Management ---
+# --- Question Management (Updated Validation Logic) ---
 
 @bp.route('/exams/<int:exam_id>/questions', methods=['POST'])
 @jwt_required()
@@ -228,65 +133,98 @@ def add_question(exam_id):
 
     data = request.get_json()
     q_text = data.get('question_text')
-    q_type_str = data.get('question_type')
+    q_type_str = data.get('question_type') # Expect 'MCQ', 'Short Answer', or 'Long Answer'
     marks = data.get('marks')
-    options = data.get('options')
-    correct_answer = data.get('correct_answer')
-    word_limit = data.get('word_limit')
+    options = data.get('options') # Provided only for MCQ
+    correct_answer = data.get('correct_answer') # Provided only for MCQ
+    word_limit = data.get('word_limit') # Provided only for Short/Long
 
+    # Basic Validation
     if not q_text or not q_type_str or marks is None:
         return jsonify({"msg": "Missing required fields: question_text, question_type, marks"}), 400
 
+    # Validate Question Type based on its *value*
     try:
-        q_type_enum_key = q_type_str.upper().replace(" ", "_")
-        q_type = QuestionType[q_type_enum_key]
-    except KeyError:
-         valid_types = [qt.value for qt in QuestionType]
+        q_type_enum = next((qt for qt in QuestionType if qt.value == q_type_str), None)
+        if q_type_enum is None:
+            raise ValueError("Invalid question type specified.")
+    except ValueError as e:
+         valid_types = [qt.value for qt in QuestionType] # Get ['MCQ', 'Short Answer', 'Long Answer']
          return jsonify({"msg": f"Invalid question type '{q_type_str}'. Must be one of {valid_types}"}), 400
 
+    # Validate Marks
     try:
         marks = int(marks)
         if marks <= 0: raise ValueError("Marks must be positive")
     except (ValueError, TypeError) as e:
         return jsonify({"msg": f"Invalid marks: {e}"}), 400
 
-    if q_type == QuestionType.MCQ:
-        if not options or not isinstance(options, dict) or not options:
-            return jsonify({"msg": "MCQ requires a non-empty 'options' dictionary."}), 400
-        if not correct_answer or not isinstance(correct_answer, str) or correct_answer not in options:
-             return jsonify({"msg": "MCQ requires a 'correct_answer' string that is one of the keys in the 'options' dictionary."}), 400
-        word_limit = None
-    else:
-        options = None
-        correct_answer = None
-        try:
-             word_limit_val = int(word_limit) if word_limit is not None else None
-             if word_limit_val is not None and word_limit_val <= 0:
-                 raise ValueError("Word limit must be positive if provided.")
-             word_limit = word_limit_val
-        except (ValueError, TypeError):
-             return jsonify({"msg": "Invalid word limit (must be a positive integer or null/absent)."}), 400
+    # Validate and prepare type-specific fields
+    validated_options = None
+    validated_correct_answer = None
+    validated_word_limit = None
 
+    if q_type_enum == QuestionType.MCQ:
+        if not options or not isinstance(options, dict) or not options: # Check non-empty dict
+            return jsonify({"msg": "MCQ requires a non-empty 'options' dictionary."}), 400
+        if not correct_answer or not isinstance(correct_answer, str):
+            return jsonify({"msg": "MCQ requires a 'correct_answer' string."}), 400
+        if correct_answer not in options:
+             return jsonify({"msg": f"MCQ 'correct_answer' ('{correct_answer}') must be one of the keys provided in 'options'."}), 400
+
+        validated_options = options
+        validated_correct_answer = correct_answer
+        # word_limit remains None implicitly
+
+    elif q_type_enum in [QuestionType.SHORT_ANSWER, QuestionType.LONG_ANSWER]:
+        # options and correct_answer remain None implicitly
+        if word_limit is not None: # Word limit is optional for these types
+            try:
+                word_limit_val = int(word_limit)
+                if word_limit_val <= 0:
+                    raise ValueError("Word limit must be positive if provided.")
+                validated_word_limit = word_limit_val
+            except (ValueError, TypeError):
+                 return jsonify({"msg": "Invalid word_limit (must be a positive integer or null/absent)."}), 400
+        else:
+             validated_word_limit = None # Explicitly set None if not provided
+
+    else:
+        # Should not happen if enum validation worked, but safety check
+        return jsonify({"msg": "Unhandled question type during validation."}), 500
+
+
+    # Create Question object
     new_question = Question(
         exam_id=exam_id,
         question_text=q_text,
-        question_type=q_type,
+        question_type=q_type_enum, # Store the actual enum member
         marks=marks,
-        options=options,
-        correct_answer=correct_answer,
-        word_limit=word_limit
+        options=validated_options, # Will be None if not MCQ
+        correct_answer=validated_correct_answer, # Will be None if not MCQ
+        word_limit=validated_word_limit # Will be None if MCQ
     )
+
     try:
         db.session.add(new_question)
         db.session.commit()
+        # Return the created question, using the enum's value for type
         return jsonify({
             "msg": "Question added successfully",
-            "question_id": new_question.id
-            }), 201
+            "question": {
+                "id": new_question.id,
+                "question_text": new_question.question_text,
+                "question_type": new_question.question_type.value, # Return 'MCQ', 'Short Answer', etc.
+                "marks": new_question.marks,
+                "options": new_question.options,
+                "correct_answer": new_question.correct_answer,
+                "word_limit": new_question.word_limit
+            }
+        }), 201
     except Exception as e:
         db.session.rollback()
-        print(f"Error adding question to exam {exam_id} for teacher {teacher_id}: {e}")
-        return jsonify({"msg": "Failed to add question due to server error."}), 500
+        print(f"Error saving question to exam {exam_id}: {e}")
+        return jsonify({"msg": "Failed to save question due to server error."}), 500
 
 
 @bp.route('/exams/<int:exam_id>/questions', methods=['GET'])
@@ -295,29 +233,60 @@ def add_question(exam_id):
 @verified_required
 def get_exam_questions(exam_id):
     teacher_id = get_current_user_id()
-    if not teacher_id:
-        return jsonify({"msg": "Invalid authentication token or unable to identify user."}), 401
-
+    if not teacher_id: return jsonify({"msg": "Invalid authentication token"}), 401
     try:
         exam = Exam.query.filter_by(id=exam_id, created_by=teacher_id).first_or_404("Exam not found or access denied")
         questions = Question.query.filter_by(exam_id=exam_id).order_by(Question.id).all()
-
+        # Serialize using the enum's *value* for question_type
         questions_data = [{
             "id": q.id,
             "question_text": q.question_text,
-            "question_type": q.question_type.value,
+            "question_type": q.question_type.value, # Use 'MCQ', 'Short Answer', etc.
             "marks": q.marks,
-            "options": q.options,
-            "correct_answer": q.correct_answer,
-            "word_limit": q.word_limit
+            "options": q.options, # Included if present (i.e., for MCQ)
+            "correct_answer": q.correct_answer, # Included if present (i.e., for MCQ) - Teacher sees this
+            "word_limit": q.word_limit # Included if present
         } for q in questions]
-
         return jsonify(questions_data), 200
     except Exception as e:
+         if hasattr(e, 'code') and e.code == 404: return jsonify({"msg": "Exam not found or access denied"}), 404
+         print(f"Error fetching questions: {e}"); return jsonify({"msg": "Error fetching questions."}), 500
+
+
+@bp.route('/exams/<int:exam_id>/questions/<int:question_id>', methods=['GET'])
+@jwt_required()
+@teacher_required
+@verified_required
+def get_single_question(exam_id, question_id):
+    teacher_id = get_current_user_id()
+    if not teacher_id:
+        return jsonify({"msg": "Invalid authentication token"}), 401
+
+    try:
+        # Verify the question belongs to an exam owned by the teacher
+        question = db.session.query(Question).join(Exam).filter(
+            Question.id == question_id,
+            Question.exam_id == exam_id,
+            Exam.created_by == teacher_id
+        ).first_or_404("Question not found or access denied")
+
+        # Serialize the single question using the enum's value
+        question_data = {
+            "id": question.id,
+            "question_text": question.question_text,
+            "question_type": question.question_type.value, # Use 'MCQ', 'Short Answer', etc.
+            "marks": question.marks,
+            "options": question.options,
+            "correct_answer": question.correct_answer,
+            "word_limit": question.word_limit
+        }
+        return jsonify(question_data), 200
+
+    except Exception as e:
          if hasattr(e, 'code') and e.code == 404:
-             return jsonify({"msg": "Exam not found or access denied"}), 404
-         print(f"Error fetching questions for exam {exam_id}, teacher {teacher_id}: {e}")
-         return jsonify({"msg": "Error fetching exam questions."}), 500
+             return jsonify({"msg": "Question not found or access denied"}), 404
+         print(f"Error fetching single question {question_id} for exam {exam_id}: {e}")
+         return jsonify({"msg": "Error fetching question details."}), 500
 
 
 @bp.route('/exams/<int:exam_id>/questions/<int:question_id>', methods=['PUT'])
@@ -327,7 +296,7 @@ def get_exam_questions(exam_id):
 def update_question(exam_id, question_id):
     teacher_id = get_current_user_id()
     if not teacher_id:
-        return jsonify({"msg": "Invalid authentication token or unable to identify user."}), 401
+        return jsonify({"msg": "Invalid authentication token"}), 401
 
     question = db.session.query(Question).join(Exam).filter(
         Question.id == question_id,
@@ -337,12 +306,12 @@ def update_question(exam_id, question_id):
 
     data = request.get_json()
     updated = False
-    original_q_type = question.question_type
+    original_q_type = question.question_type # Store original type
 
-    if 'question_text' in data:
-        if data['question_text'] != question.question_text:
-            question.question_text = data['question_text']
-            updated = True
+    # --- Apply Basic Updates ---
+    if 'question_text' in data and data['question_text'] != question.question_text:
+        question.question_text = data['question_text']
+        updated = True
     if 'marks' in data:
         try:
             marks = int(data['marks'])
@@ -353,46 +322,72 @@ def update_question(exam_id, question_id):
         except (ValueError, TypeError) as e:
             return jsonify({"msg": f"Invalid marks: {e}"}), 400
 
-    new_q_type = question.question_type
+    # --- Determine Final Question Type ---
+    final_q_type_enum = question.question_type # Start with current type
     if 'question_type' in data:
+        q_type_str = data['question_type']
         try:
-            q_type_str = data['question_type']
-            q_type_enum_key = q_type_str.upper().replace(" ", "_")
-            new_q_type = QuestionType[q_type_enum_key]
-            if new_q_type != question.question_type:
-                 question.question_type = new_q_type
+            # Find enum member matching the provided value ('MCQ', 'Short Answer', ...)
+            matched_q_type = next((qt for qt in QuestionType if qt.value == q_type_str), None)
+            if matched_q_type is None: raise ValueError("Invalid question type provided.")
+            if matched_q_type != question.question_type:
+                 final_q_type_enum = matched_q_type # Set the new type enum member
+                 question.question_type = final_q_type_enum
                  updated = True
-        except KeyError:
+        except ValueError as e:
             valid_types = [qt.value for qt in QuestionType]
-            return jsonify({"msg": f"Invalid question type '{data['question_type']}'. Must be one of {valid_types}"}), 400
+            return jsonify({"msg": f"Invalid question type '{q_type_str}'. Must be one of {valid_types}"}), 400
 
-    if new_q_type == QuestionType.MCQ:
-        options_updated = False
-        if 'options' in data:
-             options = data['options']
-             if not options or not isinstance(options, dict) or not options:
-                 return jsonify({"msg": "MCQ requires a non-empty 'options' dictionary."}), 400
-             if options != question.options:
-                 question.options = options
-                 options_updated = True
+    # --- Validate and Apply Type-Specific Updates Based on FINAL Type ---
+    if final_q_type_enum == QuestionType.MCQ:
+        options_from_request = data.get('options')
+        correct_answer_from_request = data.get('correct_answer')
+        options_changed = False
+
+        # Update options if provided
+        if 'options' in data: # Check if key exists in request
+            if not options_from_request or not isinstance(options_from_request, dict) or not options_from_request:
+                 return jsonify({"msg": "MCQ update requires a non-empty 'options' dictionary if provided."}), 400
+            if options_from_request != question.options:
+                 question.options = options_from_request
+                 options_changed = True
                  updated = True
 
-        if 'correct_answer' in data:
-             correct_answer = data['correct_answer']
-             current_options = question.options
-             if not correct_answer or not isinstance(correct_answer, str) or correct_answer not in current_options:
-                  return jsonify({"msg": f"MCQ 'correct_answer' ({correct_answer}) must be one of the keys in 'options' ({list(current_options.keys())})."}), 400
-             if correct_answer != question.correct_answer:
-                 question.correct_answer = correct_answer
-                 updated = True
-        elif options_updated:
-             if question.correct_answer not in question.options:
-                 return jsonify({"msg": f"Options updated, but existing correct answer '{question.correct_answer}' is no longer a valid option key. Please provide a new correct_answer."}), 400
+        # Determine the correct answer to validate/set
+        final_correct_answer = None
+        if 'correct_answer' in data: # If explicitly provided in request
+             if not correct_answer_from_request or not isinstance(correct_answer_from_request, str):
+                  return jsonify({"msg": "MCQ update requires a 'correct_answer' string if provided."}), 400
+             final_correct_answer = correct_answer_from_request
+        else: # If not in request, keep the old one (if type didn't change from non-MCQ)
+             if original_q_type == QuestionType.MCQ:
+                 final_correct_answer = question.correct_answer
+             # If type *changed* to MCQ, correct_answer MUST be provided now or in options update
+             elif not options_changed: # If type changed AND options didn't, require correct_answer
+                  return jsonify({"msg": "Changing type to MCQ requires 'correct_answer' field."}), 400
 
+
+        # Validate the final_correct_answer against the final options
+        final_options = question.options # Use the potentially updated options
+        if final_correct_answer is not None: # Only validate if we determined one should exist
+            if final_correct_answer not in final_options:
+                 return jsonify({"msg": f"The determined 'correct_answer' ('{final_correct_answer}') must be a key in the final 'options'."}), 400
+            # Update the stored correct answer if it changed
+            if final_correct_answer != question.correct_answer:
+                 question.correct_answer = final_correct_answer
+                 updated = True
+        elif final_q_type_enum == QuestionType.MCQ:
+             # If it's definitely MCQ but we couldn't determine a correct answer, it's an error
+             return jsonify({"msg": "Could not determine a valid 'correct_answer' for the MCQ update."}), 400
+
+
+        # Nullify word limit if final type is MCQ
         if question.word_limit is not None:
             question.word_limit = None
             if original_q_type != QuestionType.MCQ: updated = True
-    else:
+
+    else: # Final type is Short or Long Answer
+        # Update word limit if provided
         if 'word_limit' in data:
              try:
                  word_limit = data['word_limit']
@@ -403,7 +398,9 @@ def update_question(exam_id, question_id):
                      question.word_limit = word_limit_val
                      updated = True
              except (ValueError, TypeError):
-                 return jsonify({"msg": "Invalid word limit (must be a positive integer or null/absent)."}), 400
+                 return jsonify({"msg": "Invalid word_limit (must be a positive integer or null/absent)."}), 400
+
+        # Nullify MCQ fields if final type is not MCQ
         if question.options is not None:
              question.options = None
              if original_q_type == QuestionType.MCQ: updated = True
@@ -411,15 +408,26 @@ def update_question(exam_id, question_id):
              question.correct_answer = None
              if original_q_type == QuestionType.MCQ: updated = True
 
+    # --- End Apply Updates ---
+
     if not updated:
         return jsonify({"msg": "No changes provided or values are the same."}), 400
 
     try:
         db.session.commit()
-        return jsonify({"msg": "Question updated successfully"}), 200
+        # Return updated question details, using enum value
+        return jsonify({
+             "msg": "Question updated successfully",
+             "question": {
+                "id": question.id, "question_text": question.question_text,
+                "question_type": question.question_type.value, # Return 'MCQ', 'Short Answer', etc.
+                "marks": question.marks, "options": question.options,
+                "correct_answer": question.correct_answer, "word_limit": question.word_limit
+            }
+        }), 200
     except Exception as e:
         db.session.rollback()
-        print(f"Error updating question {question_id} in exam {exam_id} for teacher {teacher_id}: {e}")
+        print(f"Error updating question {question_id}: {e}")
         return jsonify({"msg": "Failed to update question due to server error."}), 500
 
 
@@ -428,25 +436,12 @@ def update_question(exam_id, question_id):
 @teacher_required
 @verified_required
 def delete_question(exam_id, question_id):
-    teacher_id = get_current_user_id()
-    if not teacher_id:
-        return jsonify({"msg": "Invalid authentication token or unable to identify user."}), 401
-
-    question = db.session.query(Question).join(Exam).filter(
-        Question.id == question_id,
-        Question.exam_id == exam_id,
-        Exam.created_by == teacher_id
-    ).first_or_404("Question not found or access denied")
-
-    try:
-        db.session.delete(question)
-        db.session.commit()
-        return jsonify({"msg": "Question deleted successfully"}), 200
-    except Exception as e:
-        db.session.rollback()
-        print(f"Error deleting question {question_id} from exam {exam_id} for teacher {teacher_id}: {e}")
-        return jsonify({"msg": "Failed to delete question due to server error."}), 500
-
+    # (Code from previous correct version)
+    teacher_id = get_current_user_id();
+    if not teacher_id: return jsonify({"msg": "Invalid authentication token"}), 401
+    question = db.session.query(Question).join(Exam).filter(Question.id == question_id, Question.exam_id == exam_id, Exam.created_by == teacher_id).first_or_404("Question not found or access denied")
+    try: db.session.delete(question); db.session.commit(); return jsonify({"msg": "Question deleted"}), 200
+    except Exception as e: db.session.rollback(); print(f"Error deleting question: {e}"); return jsonify({"msg": "Delete failed"}), 500
 
 # --- View Results ---
 
@@ -455,87 +450,32 @@ def delete_question(exam_id, question_id):
 @teacher_required
 @verified_required
 def get_exam_results(exam_id):
-    teacher_id = get_current_user_id()
-    if not teacher_id:
-        return jsonify({"msg": "Invalid authentication token or unable to identify user."}), 401
-
+    # (Code from previous correct version - uses enum value)
+    teacher_id = get_current_user_id();
+    if not teacher_id: return jsonify({"msg": "Invalid authentication token"}), 401
     try:
-        # Verify exam belongs to the teacher and eager load its questions
-        exam = Exam.query.filter_by(id=exam_id, created_by=teacher_id)\
-                         .options(joinedload(Exam.questions))\
-                         .first_or_404("Exam not found or access denied")
-
-        # Eager load related data for responses
-        responses = StudentResponse.query.filter_by(exam_id=exam_id)\
-                                        .options(
-                                            joinedload(StudentResponse.student),
-                                            joinedload(StudentResponse.question),
-                                            joinedload(StudentResponse.evaluation)
-                                        )\
-                                        .join(Question)\
-                                        .order_by(StudentResponse.student_id, Question.id)\
-                                        .all()
-
-        # --- Start of correctly indented block ---
+        exam = Exam.query.filter_by(id=exam_id, created_by=teacher_id).options(joinedload(Exam.questions)).first_or_404("Exam not found or access denied")
+        responses = StudentResponse.query.filter_by(exam_id=exam_id).options(joinedload(StudentResponse.student), joinedload(StudentResponse.question), joinedload(StudentResponse.evaluation)).join(Question).order_by(StudentResponse.student_id, Question.id).all()
         results_by_student = {}
-        # Use the eager-loaded questions from the exam object
         total_possible_marks_exam = sum(q.marks for q in exam.questions if q.marks)
-
         for resp in responses:
-            # --- Start of loop body (indented one level) ---
-            student = resp.student
-            if not student: continue
-
-            student_id = student.id
-            student_name = student.name
-
-            if student_id not in results_by_student:
-                results_by_student[student_id] = {
-                    "student_id": student_id,
-                    "student_name": student_name,
-                    "total_marks_awarded": 0.0,
-                    "total_marks_possible": total_possible_marks_exam,
-                    "submission_status": "Submitted",
-                    "details": []
-                }
-
-            evaluation = resp.evaluation
+            student = resp.student; question = resp.question; evaluation = resp.evaluation
+            if not student or not question: continue
+            student_id=student.id
+            if student_id not in results_by_student: results_by_student[student_id] = {"student_id": student_id, "student_name": student.name, "total_marks_awarded": 0.0, "total_marks_possible": total_possible_marks_exam, "submission_status": "Submitted", "details": []}
             marks_awarded = evaluation.marks_awarded if evaluation and evaluation.marks_awarded is not None else None
             feedback = evaluation.feedback if evaluation else "Not Evaluated Yet"
             evaluated_at = evaluation.evaluated_at.isoformat() if evaluation and evaluation.evaluated_at else None
             evaluated_by = evaluation.evaluated_by if evaluation else None
-
-            question = resp.question
-            if not question: continue
-
-            question_text = question.question_text
-            marks_possible = question.marks
-
-            if marks_awarded is not None:
-                 results_by_student[student_id]['total_marks_awarded'] += float(marks_awarded)
-
+            if marks_awarded is not None: results_by_student[student_id]['total_marks_awarded'] += float(marks_awarded)
             results_by_student[student_id]['details'].append({
-                "response_id": resp.id,
-                "question_id": question.id,
-                "question_text": question_text,
-                "response_text": resp.response_text,
-                "submitted_at": resp.submitted_at.isoformat() if resp.submitted_at else None,
-                "marks_possible": marks_possible,
-                "marks_awarded": marks_awarded,
-                "feedback": feedback,
-                "evaluated_at": evaluated_at,
-                "evaluated_by": evaluated_by
-            })
-            # --- End of loop body ---
-
-        # This return is outside the loop, but inside the try block
+                "response_id": resp.id, "question_id": question.id, "question_text": question.question_text,
+                "question_type": question.question_type.value, # Return enum value
+                "response_text": resp.response_text, "submitted_at": resp.submitted_at.isoformat() if resp.submitted_at else None,
+                "marks_possible": question.marks, "marks_awarded": marks_awarded, "feedback": feedback,
+                "evaluated_at": evaluated_at, "evaluated_by": evaluated_by
+             })
         return jsonify(list(results_by_student.values())), 200
-        # --- End of correctly indented block ---
-
-    # Except block aligns with try block
     except Exception as e:
-         if hasattr(e, 'code') and e.code == 404:
-             return jsonify({"msg": "Exam not found or access denied"}), 404
-         print(f"Error fetching results for exam {exam_id}, teacher {teacher_id}: {e}")
-         # Optionally add traceback: import traceback; traceback.print_exc()
-         return jsonify({"msg": "Error fetching exam results."}), 500
+         if hasattr(e, 'code') and e.code == 404: return jsonify({"msg": "Exam not found or access denied"}), 404
+         print(f"Error fetching results: {e}"); return jsonify({"msg": "Error fetching exam results."}), 500
