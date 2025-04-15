@@ -1,7 +1,3 @@
-Okay, here is a full, detailed project report covering both the Angular frontend and the Flask backend for your Online Exam Portal. It elaborates on the structure, implementation details, technologies, and flow for each part.
-
----
-
 ## Project Report: AI-Enhanced Online Exam Portal
 
 **Version:** 1.2

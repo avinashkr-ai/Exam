@@ -1,7 +1,3 @@
-Okay, here is the updated API documentation specifically for the **Teacher** role, based on the corrected `teacher.py` code which handles different question types and validation correctly.
-
----
-
 ## Online Exam Portal - Teacher API Documentation (Updated)
 
 **Base URL:** (Your running server, e.g., `http://127.0.0.1:5000`)

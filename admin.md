@@ -1,7 +1,3 @@
-Okay, here is the updated API documentation specifically for the **Admin** role, reflecting the latest code structure and incorporating the JWT custom claims logic.
-
----
-
 ## Online Exam Portal - Admin API Documentation (Updated)
 
 **Base URL:** (Your running server, e.g., `http://127.0.0.1:5000`)

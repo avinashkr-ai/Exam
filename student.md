@@ -1,7 +1,3 @@
-Okay, here is the API documentation specifically for the **Student** role, reflecting the latest code which should be functioning correctly.
-
----
-
 ## Online Exam Portal - Student API Documentation (Updated)
 
 **Base URL:** (Your running server, e.g., `http://127.0.0.1:5000`)
