@@ -1,0 +1,33 @@
+<div class="container mt-4">
+    <h2>My Results</h2>
+    <app-loading-spinner *ngIf="loading"></app-loading-spinner>
+    <app-error-alert *ngIf="error" [message]="error"></app-error-alert>
+    <div *ngIf="!loading && !error">
+      <div *ngFor="let result of results" class="card mb-3">
+        <div class="card-header">
+          {{ result.exam_title }} ({{ result.exam_scheduled_time | date:'medium' }})
+        </div>
+        <div class="card-body">
+          <p>Total: {{ result.total_marks_awarded || 'Not Fully Evaluated' }} / {{ result.total_marks_possible }}</p>
+          <table class="table table-sm">
+            <thead>
+              <tr>
+                <th>Question</th>
+                <th>Your Answer</th>
+                <th>Marks</th>
+                <th>Feedback</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let question of result.questions">
+                <td>{{ question.question_text }}</td>
+                <td>{{ question.your_response }}</td>
+                <td>{{ question.marks_awarded || 'Not Evaluated' }} / {{ question.marks_possible }}</td>
+                <td>{{ question.feedback }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>

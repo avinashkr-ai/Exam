@@ -1,0 +1,15 @@
+<div class="container mt-4">
+    <h2>Evaluate Response</h2>
+    <app-loading-spinner *ngIf="loading"></app-loading-spinner>
+    <app-error-alert *ngIf="error" [message]="error"></app-error-alert>
+    <div *ngIf="!loading && !error && response">
+      <div class="card">
+        <div class="card-body">
+          <h5>Question: {{ response.question_text }}</h5>
+          <p>Student: {{ response.student_name }}</p>
+          <p>Response: {{ response.response_text }}</p>
+          <button class="btn btn-primary" (click)="evaluate()">Trigger AI Evaluation</button>
+        </div>
+      </div>
+    </div>
+  </div>

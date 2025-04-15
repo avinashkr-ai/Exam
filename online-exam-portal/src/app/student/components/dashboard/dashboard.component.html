@@ -1,0 +1,57 @@
+<div class="container mt-4">
+  <h2>Student Dashboard</h2>
+  <nav class="nav nav-pills mb-3">
+    <a class="nav-link active" routerLink="/student" routerLinkActive="active">Dashboard</a>
+    <a class="nav-link" routerLink="/student/exam-list" routerLinkActive="active">Available Exams</a>
+    <a class="nav-link" routerLink="/student/results" routerLinkActive="active">Results</a>
+  </nav>
+  <div *ngIf="stats; else loading">
+    <div class="row">
+      <div class="col-md-6">
+        <div class="card">
+          <div class="card-body">
+            <h5 class="card-title">Completed Exams</h5>
+            <p class="card-text">{{ stats.completed_exams_count }}</p>
+            <a routerLink="/student/results" class="btn btn-primary">View Results</a>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-6">
+        <div class="card">
+          <div class="card-body">
+            <h5 class="card-title">Upcoming Exams</h5>
+            <p class="card-text">{{ stats.upcoming_exams.length }}</p>
+            <a routerLink="/student/exam-list" class="btn btn-primary">View Exams</a>
+          </div>
+        </div>
+      </div>
+    </div>
+    <h3 class="mt-4">Upcoming Exams</h3>
+    <div *ngIf="stats.upcoming_exams.length; else noExams">
+      <table class="table table-striped">
+        <thead>
+          <tr>
+            <th>Title</th>
+            <th>Scheduled Time</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let exam of stats.upcoming_exams">
+            <td>{{ exam.title }}</td>
+            <td>{{ exam.scheduled_time | date:'medium' }}</td>
+            <td>
+              <a routerLink="/student/exam-take/{{exam.id}}" class="btn btn-sm btn-primary">Take Exam</a>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <ng-template #noExams>
+      <p>No upcoming exams.</p>
+    </ng-template>
+  </div>
+  <ng-template #loading>
+    <p>Loading dashboard data...</p>
+  </ng-template>
+</div>

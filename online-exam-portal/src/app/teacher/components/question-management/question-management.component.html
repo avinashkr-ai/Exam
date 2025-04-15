@@ -1,0 +1,139 @@
+<div class="container mt-4">
+
+  
+  <h3>Questions</h3>
+  <div *ngIf="questions.length; else noQuestions">
+    <table class="table table-striped">
+      <thead>
+        <tr>
+          <th>Text</th>
+          <th>Type</th>
+          <th>Marks</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let question of questions">
+          <td>{{ question.question_text }}</td>
+          <td>{{ question.question_type }}</td>
+          <td>{{ question.marks }}</td>
+          <td>
+            <button class="btn btn-sm btn-warning" (click)="startEdit(question)">Edit</button>
+            <button class="btn btn-sm btn-danger" (click)="deleteQuestion(question.id)">Delete</button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <ng-template #noQuestions>
+    <p>No questions added yet.</p>
+  </ng-template>
+
+  <h2>Question Management for Exam {{ examId }}</h2>
+  <a routerLink="/teacher/exam-management" class="btn btn-secondary mb-3">Back to Exams</a>
+  <div *ngIf="error" class="alert alert-danger">{{ error }}</div>
+  <div class="card mb-3">
+    <div class="card-header">Add New Question</div>
+    <div class="card-body">
+      <form (ngSubmit)="addQuestion()">
+        <div class="mb-3">
+          <label for="question_text" class="form-label">Question Text</label>
+          <input type="text" class="form-control" id="question_text" [(ngModel)]="newQuestion.question_text" name="question_text" required>
+        </div>
+        <div class="mb-3">
+          <label for="question_type" class="form-label">Type</label>
+          <select class="form-control" id="question_type" [(ngModel)]="newQuestion.question_type" name="question_type" required>
+            <option value="MCQ">MCQ</option>
+            <option value="Short Answer">Short Answer</option>
+            <option value="Long Answer">Long Answer</option>
+          </select>
+        </div>
+        <div class="mb-3">
+          <label for="marks" class="form-label">Marks</label>
+          <input type="number" class="form-control" id="marks" [(ngModel)]="newQuestion.marks" name="marks" required min="1">
+        </div>
+        <div *ngIf="newQuestion.question_type === 'MCQ'">
+          <div class="mb-3">
+            <label class="form-label">Options</label>
+            <div *ngFor="let opt of ['A', 'B', 'C', 'D']" class="input-group mb-2">
+              <span class="input-group-text">{{ opt }}</span>
+              <input type="text" class="form-control" [(ngModel)]="newQuestion.options![opt]" [name]="'option_' + opt" required>
+            </div>
+          </div>
+          <div class="mb-3">
+            <label for="correct_answer" class="form-label">Correct Answer</label>
+            <select class="form-control" id="correct_answer" [(ngModel)]="newQuestion.correct_answer" name="correct_answer" required>
+              <option value="A">A</option>
+              <option value="B">B</option>
+              <option value="C">C</option>
+              <option value="D">D</option>
+            </select>
+          </div>
+        </div>
+        <div class="mb-3" *ngIf="newQuestion.question_type === 'Short Answer' || newQuestion.question_type === 'Long Answer'">
+          <label for="word_limit" class="form-label">Word Limit (Optional)</label>
+          <input type="number" class="form-control" id="word_limit" [(ngModel)]="newQuestion.word_limit" name="word_limit" min="0">
+        </div>
+        <button type="submit" class="btn btn-primary">Add Question</button>
+      </form>
+    </div>
+  </div>
+
+
+
+  <!-- Edit Question Modal -->
+  <div *ngIf="editQuestion" class="modal show d-block" tabindex="-1" style="background: rgba(0,0,0,0.5);">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Edit Question</h5>
+          <button type="button" class="btn-close" (click)="editQuestion = null"></button>
+        </div>
+        <div class="modal-body">
+          <form (ngSubmit)="updateQuestion()">
+            <div class="mb-3">
+              <label for="edit_question_text" class="form-label">Question Text</label>
+              <input type="text" class="form-control" id="edit_question_text" [(ngModel)]="editQuestion.question_text" name="edit_question_text" required>
+            </div>
+            <div class="mb-3">
+              <label for="edit_question_type" class="form-label">Type</label>
+              <select class="form-control" id="edit_question_type" [(ngModel)]="editQuestion.question_type" name="edit_question_type" required>
+                <option value="MCQ">MCQ</option>
+                <option value="Short Answer">Short Answer</option>
+                <option value="Long Answer">Long Answer</option>
+              </select>
+            </div>
+            <div class="mb-3">
+              <label for="edit_marks" class="form-label">Marks</label>
+              <input type="number" class="form-control" id="edit_marks" [(ngModel)]="editQuestion.marks" name="edit_marks" required min="1">
+            </div>
+            <div *ngIf="editQuestion.question_type === 'MCQ'">
+              <div class="mb-3">
+                <label class="form-label">Options</label>
+                <div *ngFor="let opt of ['A', 'B', 'C', 'D']" class="input-group mb-2">
+                  <span class="input-group-text">{{ opt }}</span>
+                  <input type="text" class="form-control" [(ngModel)]="editQuestion.options![opt]" [name]="'edit_option_' + opt" required>
+                </div>
+              </div>
+              <div class="mb-3">
+                <label for="edit_correct_answer" class="form-label">Correct Answer</label>
+                <select class="form-control" id="edit_correct_answer" [(ngModel)]="editQuestion.correct_answer" name="edit_correct_answer" required>
+                  <option value="A">A</option>
+                  <option value="B">B</option>
+                  <option value="C">C</option>
+                  <option value="D">D</option>
+                </select>
+              </div>
+            </div>
+            <div class="mb-3" *ngIf="editQuestion.question_type === 'Short Answer' || editQuestion.question_type === 'Long Answer'">
+              <label for="edit_word_limit" class="form-label">Word Limit (Optional)</label>
+              <input type="number" class="form-control" id="edit_word_limit" [(ngModel)]="editQuestion.word_limit" name="edit_word_limit" min="0">
+            </div>
+            <button type="submit" class="btn btn-primary">Update Question</button>
+            <button type="button" class="btn btn-secondary" (click)="editQuestion = null">Cancel</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

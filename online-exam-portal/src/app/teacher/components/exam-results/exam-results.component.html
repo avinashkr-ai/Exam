@@ -1,0 +1,27 @@
+<div class="container mt-4">
+    <h2>Exam Results</h2>
+    <app-loading-spinner *ngIf="loading"></app-loading-spinner>
+    <app-error-alert *ngIf="error" [message]="error"></app-error-alert>
+    <table class="table table-striped" *ngIf="!loading && !error">
+      <thead>
+        <tr>
+          <th>Student</th>
+          <th>Total Marks</th>
+          <th>Details</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let result of results">
+          <td>{{ result.student_name }}</td>
+          <td>{{ result.total_marks_awarded }} / {{ result.total_marks_possible }}</td>
+          <td>
+            <ul>
+              <li *ngFor="let detail of result.details">
+                {{ detail.question_text }}: {{ detail.marks_awarded || 'Not Evaluated' }} / {{ detail.marks_possible }}
+              </li>
+            </ul>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>

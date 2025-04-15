@@ -1,0 +1,25 @@
+<div class="container mt-4">
+    <h2>{{ exam?.exam_title }}</h2>
+    <p>Time Remaining: {{ timeRemaining | async | date:'mm:ss' }}</p>
+    <app-loading-spinner *ngIf="loading"></app-loading-spinner>
+    <app-error-alert *ngIf="error" [message]="error"></app-error-alert>
+    <form (ngSubmit)="submitExam()" *ngIf="!loading && !error">
+      <div *ngFor="let question of exam?.questions; let i = index" class="card mb-3">
+        <div class="card-body">
+          <h5>{{ question.question_text }} ({{ question.marks }} marks)</h5>
+          <div *ngIf="question.question_type === 'MCQ'">
+            <div *ngFor="let option of question.options | keyvalue">
+              <div class="form-check">
+                <input class="form-check-input" type="radio" [name]="'q' + i" [(ngModel)]="answers[i].response_text" [value]="option.key" [id]="'q' + i + '-' + option.key">
+                <label class="form-check-label" [for]="'q' + i + '-' + option.key">{{ option.value }}</label>
+              </div>
+            </div>
+          </div>
+          <div *ngIf="question.question_type !== 'MCQ'">
+            <textarea class="form-control" [(ngModel)]="answers[i].response_text" [name]="'q' + i"></textarea>
+          </div>
+        </div>
+      </div>
+      <button type="submit" class="btn btn-primary" [disabled]="loading">Submit Exam</button>
+    </form>
+  </div>

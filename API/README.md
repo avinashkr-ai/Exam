@@ -95,4 +95,7 @@ This document provides a high-level overview suitable for stakeholders, new deve
 
 This document serves as a central reference point before diving into the specific code implementation or the detailed API endpoint specifications.
 
+### 7. Document of Deployment
+```gunicorn wsgi:app --bind 0.0.0.0:$PORT --workers 3 --timeout 120 --log-level info```
+
 ---

@@ -1,0 +1,25 @@
+<div class="container mt-4">
+    <h2>Available Exams</h2>
+    <app-loading-spinner *ngIf="loading"></app-loading-spinner>
+    <app-error-alert *ngIf="error" [message]="error"></app-error-alert>
+    <table class="table table-striped" *ngIf="!loading && !error">
+      <thead>
+        <tr>
+          <th>Title</th>
+          <th>Scheduled Time</th>
+          <th>Status</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let exam of exams">
+          <td>{{ exam.title }}</td>
+          <td>{{ exam.scheduled_time | date:'medium' }}</td>
+          <td>{{ exam.status || 'Unknown' }}</td>
+          <td>
+            <a class="btn btn-sm btn-primary" [routerLink]="['/student/exam-take', exam.id]" *ngIf="exam.status === 'Active'">Take Exam</a>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>

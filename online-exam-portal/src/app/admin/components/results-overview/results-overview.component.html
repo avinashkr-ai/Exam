@@ -1,0 +1,29 @@
+<div class="container mt-4">
+    <h2>Results Overview</h2>
+    <app-loading-spinner *ngIf="loading"></app-loading-spinner>
+    <app-error-alert *ngIf="error" [message]="error"></app-error-alert>
+    <table class="table table-striped" *ngIf="!loading && !error">
+      <thead>
+        <tr>
+          <th>Student</th>
+          <th>Exam</th>
+          <th>Question</th>
+          <th>Marks</th>
+          <th>Evaluated By</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let result of results">
+          <td>{{ result.student_name }}</td>
+          <td>{{ result.exam_title }}</td>
+          <td>{{ result.question_text }}</td>
+          <td>{{ result.marks_awarded }}</td>
+          <td>{{ result.evaluated_by }}</td>
+          <td>
+            <button class="btn btn-sm btn-primary" [routerLink]="['/admin/evaluate-response', result.response_id]">Evaluate</button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>

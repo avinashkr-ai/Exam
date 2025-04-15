@@ -1,0 +1,55 @@
+<div class="container mt-4">
+  <h3>Created Exams</h3>
+  <div *ngIf="exams.length; else noExams">
+    <table class="table table-striped">
+      <thead>
+        <tr>
+          <th>Title</th>
+          <th>Scheduled Time</th>
+          <th>Duration</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let exam of exams">
+          <td>{{ exam.title }}</td>
+          <td>{{ exam.scheduled_time | date:'medium' }}</td>
+          <td>{{ exam.duration }} min</td>
+          <td>
+            <a routerLink="/teacher/question-management/{{exam.id}}" class="btn btn-sm btn-primary">Manage Questions</a>
+            <a routerLink="/teacher/exam-results/{{exam.id}}" class="btn btn-sm btn-info">View Results</a>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <ng-template #noExams>
+    <p>No exams created yet.</p>
+  </ng-template>
+  <h2>Exam Management</h2>
+  <div *ngIf="error" class="alert alert-danger">{{ error }}</div>
+  <div class="card mb-3">
+    <div class="card-header">Create New Exam</div>
+    <div class="card-body">
+      <form (ngSubmit)="createExam()">
+        <div class="mb-3">
+          <label for="title" class="form-label">Title</label>
+          <input type="text" class="form-control" id="title" [(ngModel)]="newExam.title" name="title" required>
+        </div>
+        <div class="mb-3">
+          <label for="description" class="form-label">Description</label>
+          <textarea class="form-control" id="description" [(ngModel)]="newExam.description" name="description"></textarea>
+        </div>
+        <div class="mb-3">
+          <label for="scheduled_time" class="form-label">Scheduled Time (YYYY-MM-DDTHH:MM)</label>
+          <input type="datetime-local" class="form-control" id="scheduled_time" [(ngModel)]="newExam.scheduled_time" name="scheduled_time" required>
+        </div>
+        <div class="mb-3">
+          <label for="duration" class="form-label">Duration (minutes)</label>
+          <input type="number" class="form-control" id="duration" [(ngModel)]="newExam.duration" name="duration" required min="1">
+        </div>
+        <button type="submit" class="btn btn-primary">Create Exam</button>
+      </form>
+    </div>
+  </div>
+</div>

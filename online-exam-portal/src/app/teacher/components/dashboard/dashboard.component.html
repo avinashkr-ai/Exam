@@ -1,0 +1,19 @@
+<div class="container mt-4">
+  <h2>Teacher Dashboard</h2>
+  <nav class="nav nav-pills mb-3">
+    <a class="nav-link active" routerLink="/teacher" routerLinkActive="active">Dashboard</a>
+    <a class="nav-link" routerLink="/teacher/exam-management" routerLinkActive="active">Exam Management</a>
+  </nav>
+  <div *ngIf="stats; else loading">
+    <div class="card">
+      <div class="card-body">
+        <h5 class="card-title">My Exams</h5>
+        <p class="card-text">{{ stats.my_exams_count }}</p>
+        <a routerLink="/teacher/exam-management" class="btn btn-primary">Manage Exams</a>
+      </div>
+    </div>
+  </div>
+  <ng-template #loading>
+    <p>Loading dashboard data...</p>
+  </ng-template>
+</div>
