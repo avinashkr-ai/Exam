@@ -38,7 +38,7 @@ export const routes: Routes = [
   },
   {
     path: 'teacher',
-    // canActivate: [AuthGuard],
+    canActivate: [AuthGuard],
     data: { role: 'Teacher' },
     children: [
       { path: '', component: TeacherDashboard },

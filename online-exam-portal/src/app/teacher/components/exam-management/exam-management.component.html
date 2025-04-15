@@ -1,55 +1,211 @@
 <div class="container mt-4">
-  <h3>Created Exams</h3>
-  <div *ngIf="exams.length; else noExams">
-    <table class="table table-striped">
-      <thead>
-        <tr>
-          <th>Title</th>
-          <th>Scheduled Time</th>
-          <th>Duration</th>
-          <th>Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr *ngFor="let exam of exams">
-          <td>{{ exam.title }}</td>
-          <td>{{ exam.scheduled_time | date:'medium' }}</td>
-          <td>{{ exam.duration }} min</td>
-          <td>
-            <a routerLink="/teacher/question-management/{{exam.id}}" class="btn btn-sm btn-primary">Manage Questions</a>
-            <a routerLink="/teacher/exam-results/{{exam.id}}" class="btn btn-sm btn-info">View Results</a>
-          </td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
-  <ng-template #noExams>
-    <p>No exams created yet.</p>
-  </ng-template>
+  <!-- Navigation Menu -->
+  <nav class="nav nav-pills mb-4">
+    <a class="nav-link" routerLink="/teacher" routerLinkActive="active">Dashboard</a>
+    <a class="nav-link active" routerLink="/teacher/exam-management" routerLinkActive="active">Exam Management</a>
+  </nav>
+
   <h2>Exam Management</h2>
-  <div *ngIf="error" class="alert alert-danger">{{ error }}</div>
-  <div class="card mb-3">
-    <div class="card-header">Create New Exam</div>
+  <div *ngIf="error" class="alert alert-danger" role="alert">
+    {{ error }}
+  </div>
+
+  <!-- Create Exam Form -->
+  <div class="card mb-4">
+    <div class="card-header bg-primary text-white">
+      Create New Exam
+    </div>
     <div class="card-body">
       <form (ngSubmit)="createExam()">
         <div class="mb-3">
-          <label for="title" class="form-label">Title</label>
-          <input type="text" class="form-control" id="title" [(ngModel)]="newExam.title" name="title" required>
+          <label for="title" class="form-label">Title <span class="text-danger">*</span></label>
+          <input
+            type="text"
+            class="form-control"
+            id="title"
+            [(ngModel)]="newExam.title"
+            name="title"
+            required
+            placeholder="Enter exam title"
+          >
         </div>
         <div class="mb-3">
           <label for="description" class="form-label">Description</label>
-          <textarea class="form-control" id="description" [(ngModel)]="newExam.description" name="description"></textarea>
+          <textarea
+            class="form-control"
+            id="description"
+            [(ngModel)]="newExam.description"
+            name="description"
+            rows="4"
+            placeholder="Enter exam description"
+          ></textarea>
         </div>
         <div class="mb-3">
-          <label for="scheduled_time" class="form-label">Scheduled Time (YYYY-MM-DDTHH:MM)</label>
-          <input type="datetime-local" class="form-control" id="scheduled_time" [(ngModel)]="newExam.scheduled_time" name="scheduled_time" required>
+          <label for="scheduled_time" class="form-label">Scheduled Time <span class="text-danger">*</span></label>
+          <input
+            type="datetime-local"
+            class="form-control"
+            id="scheduled_time"
+            [(ngModel)]="newExam.scheduled_time"
+            name="scheduled_time"
+            required
+          >
         </div>
         <div class="mb-3">
-          <label for="duration" class="form-label">Duration (minutes)</label>
-          <input type="number" class="form-control" id="duration" [(ngModel)]="newExam.duration" name="duration" required min="1">
+          <label for="duration" class="form-label">Duration (minutes) <span class="text-danger">*</span></label>
+          <input
+            type="number"
+            class="form-control"
+            id="duration"
+            [(ngModel)]="newExam.duration"
+            name="duration"
+            required
+            min="1"
+            placeholder="Enter duration in minutes"
+          >
         </div>
-        <button type="submit" class="btn btn-primary">Create Exam</button>
+        <button
+          type="submit"
+          class="btn btn-primary"
+          [disabled]="!newExam.title || !newExam.scheduled_time || newExam.duration <= 0"
+        >
+          Create Exam
+        </button>
       </form>
+    </div>
+  </div>
+
+  <!-- Exam List -->
+  <h3>Created Exams</h3>
+  <div *ngIf="exams.length; else noExams" class="card">
+    <div class="card-body">
+      <table class="table table-striped table-hover">
+        <thead>
+          <tr>
+            <th scope="col">Title</th>
+            <th scope="col">Scheduled Time</th>
+            <th scope="col">Duration</th>
+            <th scope="col">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let exam of exams">
+            <td>{{ exam.title }}</td>
+            <td>{{ exam.scheduled_time | date:'medium' }}</td>
+            <td>{{ exam.duration }} min</td>
+            <td>
+              <button
+                class="btn btn-sm btn-warning me-2"
+                (click)="startEdit(exam)"
+                title="Edit Exam"
+              >
+                Edit Exam
+              </button>
+              <a
+                routerLink="/teacher/question-management/{{exam.id}}"
+                class="btn btn-sm btn-primary me-2"
+                title="Manage Questions"
+              >
+                Manage Questions
+              </a>
+              <a
+                routerLink="/teacher/exam-results/{{exam.id}}"
+                class="btn btn-sm btn-info"
+                title="View Results"
+              >
+                View Results
+              </a>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <ng-template #noExams>
+    <div class="alert alert-info">
+      No exams created yet.
+    </div>
+  </ng-template>
+
+  <!-- Edit Exam Modal -->
+  <div *ngIf="editExam" class="modal show d-block" tabindex="-1" style="background: rgba(0,0,0,0.5);">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header bg-warning text-dark">
+          <h5 class="modal-title">Edit Exam</h5>
+          <button
+            type="button"
+            class="btn-close"
+            (click)="cancelEdit()"
+            aria-label="Close"
+          ></button>
+        </div>
+        <div class="modal-body">
+          <form (ngSubmit)="updateExam()">
+            <div class="mb-3">
+              <label for="edit_title" class="form-label">Title <span class="text-danger">*</span></label>
+              <input
+                type="text"
+                class="form-control"
+                id="edit_title"
+                [(ngModel)]="editExam.title"
+                name="edit_title"
+                required
+                placeholder="Enter exam title"
+              >
+            </div>
+            <div class="mb-3">
+              <label for="edit_description" class="form-label">Description</label>
+              <textarea
+                class="form-control"
+                id="edit_description"
+                [(ngModel)]="editExam.description"
+                name="edit_description"
+                rows="4"
+                placeholder="Enter exam description"
+              ></textarea>
+            </div>
+            <div class="mb-3">
+              <label for="edit_scheduled_time" class="form-label">Scheduled Time <span class="text-danger">*</span></label>
+              <input
+                type="datetime-local"
+                class="form-control"
+                id="edit_scheduled_time"
+                [(ngModel)]="editExam.scheduled_time"
+                name="edit_scheduled_time"
+                required
+              >
+            </div>
+            <div class="mb-3">
+              <label for="edit_duration" class="form-label">Duration (minutes) <span class="text-danger">*</span></label>
+              <input
+                type="number"
+                class="form-control"
+                id="edit_duration"
+                [(ngModel)]="editExam.duration"
+                name="edit_duration"
+                required
+                min="1"
+                placeholder="Enter duration in minutes"
+              >
+            </div>
+            <button
+              type="submit"
+              class="btn btn-primary"
+              [disabled]="!editExam.title || !editExam.scheduled_time || editExam.duration <= 0"
+            >
+              Update Exam
+            </button>
+            <button
+              type="button"
+              class="btn btn-secondary ms-2"
+              (click)="cancelEdit()"
+            >
+              Cancel
+            </button>
+          </form>
+        </div>
+      </div>
     </div>
   </div>
 </div>
