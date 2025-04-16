@@ -1,248 +1,143 @@
+# app/routes/student.py
+
 from flask import Blueprint, request, jsonify
 from app.extensions import db
 from app.models import Exam, Question, StudentResponse, Evaluation, QuestionType, UserRole
 from app.utils.decorators import student_required, verified_required
 from flask_jwt_extended import jwt_required
+# Make sure helpers uses standard datetime and formats naive UTC correctly
 from app.utils.helpers import get_current_user_id, format_datetime
-from datetime import datetime, timedelta
+# Use standard Python datetime and timedelta
+from datetime import datetime, timedelta, timezone
 from sqlalchemy.orm import joinedload
-import pendulum
+# Removed pendulum import
 
 bp = Blueprint('student', __name__)
 
-# Define IST timezone
-IST = pendulum.timezone('Asia/Kolkata')
-
-
-UTC = pendulum.timezone('UTC')
+# No specific timezone definitions needed here when using naive UTC consistently
 
 @bp.route('/dashboard', methods=['GET'])
 @jwt_required()
 @student_required
 @verified_required
 def dashboard():
+    """Provides dashboard information for the logged-in student."""
     student_id = get_current_user_id()
     if not student_id:
         return jsonify({"msg": "Invalid authentication token"}), 401
+
     try:
-        completed_count = StudentResponse.query.filter_by(student_id=student_id).distinct(StudentResponse.exam_id).count()
-        now_ist = pendulum.now(IST)
-        upcoming_exams = Exam.query.filter(Exam.scheduled_time > now_ist).order_by(Exam.scheduled_time.asc()).limit(5).all()
+        # Count distinct exams the student has submitted responses for
+        completed_count = db.session.query(StudentResponse.exam_id).filter_by(
+            student_id=student_id
+        ).distinct().count()
+
+        # Get current time in naive UTC
+        now_naive_utc = datetime.utcnow()
+
+        # Find upcoming exams (scheduled time > now)
+        # Comparison works correctly between naive UTC datetimes
+        upcoming_exams = Exam.query.filter(
+            Exam.scheduled_time > now_naive_utc
+        ).order_by(Exam.scheduled_time.asc()).limit(5).all()
+
+        # Format upcoming exams data
         upcoming_data = [{
             "id": e.id,
             "title": e.title,
-            "scheduled_time": format_datetime(e.scheduled_time)
+            # Format naive UTC time using helper
+            "scheduled_time_utc": format_datetime(e.scheduled_time)
         } for e in upcoming_exams]
 
+        print(f"--- Student {student_id} dashboard generated. Completed: {completed_count} ---")
         return jsonify({
             "message": "Student Dashboard",
             "completed_exams_count": completed_count,
-            "upcoming_exams": upcoming_data
+            "upcoming_exams": upcoming_data # List of upcoming exams
         }), 200
     except Exception as e:
-        print(f"Error fetching student dashboard for student {student_id}: {e}")
+        print(f"!!! Error fetching student dashboard for student {student_id}: {e}")
         return jsonify({"msg": "Error fetching dashboard data."}), 500
-
 
 @bp.route('/exams/available', methods=['GET'])
 @jwt_required()
 @student_required
 @verified_required
 def get_available_exams():
+    """Lists exams available for the student to take (upcoming or active)."""
     student_id = get_current_user_id()
     if not student_id:
         return jsonify({"msg": "Invalid authentication token"}), 401
 
     try:
-        now_ist = pendulum.now(IST).naive()  # Changed to naive
+        # Get current time in naive UTC
+        now_naive_utc = datetime.utcnow()
+
+        # Get IDs of exams already submitted by this student
         submitted_exam_ids = {
-            resp.exam_id
-            for resp in StudentResponse.query.filter_by(student_id=student_id).with_entities(StudentResponse.exam_id)
+            resp.exam_id for resp in
+            db.session.query(StudentResponse.exam_id).filter_by(student_id=student_id)
         }
+        print(f"--- Student {student_id} has submitted exams: {submitted_exam_ids} ---")
 
-        potential_exams = Exam.query.all()
-        exams_data = []
-        for e in potential_exams:
-            if e.id in submitted_exam_ids:
+        # Get all potential exams
+        # TODO: Optimization - Could filter exams by schedule time relevance here if needed
+        potential_exams = Exam.query.order_by(Exam.scheduled_time.asc()).all()
+        available_exams_data = []
+
+        for exam in potential_exams:
+            # Skip if already submitted
+            if exam.id in submitted_exam_ids:
                 continue
 
-            start_time = e.scheduled_time  # Naive datetime
-            if not start_time:
+            # Get naive UTC start time from DB
+            start_time_naive_utc = exam.scheduled_time
+            if not start_time_naive_utc or not isinstance(start_time_naive_utc, datetime):
+                print(f"!!! WARNING: Skipping exam {exam.id} due to invalid scheduled_time: {start_time_naive_utc}")
+                continue
+            if not isinstance(exam.duration, int) or exam.duration <= 0:
+                print(f"!!! WARNING: Skipping exam {exam.id} due to invalid duration: {exam.duration}")
                 continue
 
-            end_time = start_time + timedelta(minutes=e.duration)
+            # Calculate naive UTC end time
+            try:
+                end_time_naive_utc = start_time_naive_utc + timedelta(minutes=exam.duration)
+            except TypeError:
+                print(f"!!! WARNING: Skipping exam {exam.id} due to error calculating end time (start={start_time_naive_utc}, duration={exam.duration})")
+                continue
+
+            # Determine exam status based on naive UTC comparison
             status = "Expired"
-            if now_ist < start_time:
+            if now_naive_utc < start_time_naive_utc:
                 status = "Upcoming"
-            elif start_time <= now_ist < end_time:
+            elif start_time_naive_utc <= now_naive_utc < end_time_naive_utc:
                 status = "Active"
 
+            # Include only upcoming or active exams
             if status in ["Upcoming", "Active"]:
-                exams_data.append({
-                    "id": e.id,
-                    "title": e.title,
-                    "description": e.description,
-                    "scheduled_time": format_datetime(start_time),  # Changed
-                    "duration": e.duration,
+                available_exams_data.append({
+                    "id": exam.id,
+                    "title": exam.title,
+                    "description": exam.description,
+                    # Format naive UTC time using helper
+                    "scheduled_time_utc": format_datetime(start_time_naive_utc),
+                    "duration_minutes": exam.duration,
                     "status": status
                 })
 
-        return jsonify(exams_data), 200
+        print(f"--- Found {len(available_exams_data)} available exams for student {student_id} ---")
+        return jsonify(available_exams_data), 200
+
     except Exception as e:
         print(f"!!! ERROR in get_available_exams for student {student_id}: {type(e).__name__} - {e}")
         return jsonify({"msg": "Error fetching available exams."}), 500
-
-
-@bp.route('/exams/<int:exam_id>/submit', methods=['POST'])
-@jwt_required()
-@student_required
-@verified_required
-def submit_exam(exam_id):
-    student_id = get_current_user_id()
-    if not student_id:
-        return jsonify({"msg": "Invalid authentication token"}), 401
-
-    # Get current time in IST (aware)
-    now_ist = pendulum.now(IST)
-    data = request.get_json()
-
-    try:
-        exam = Exam.query.get(exam_id)
-        if not exam:
-            return jsonify({"msg": "Exam not found."}), 404
-
-        # Check for existing submission (remains the same)
-        existing_submission = StudentResponse.query.filter_by(
-            student_id=student_id, exam_id=exam_id
-        ).first()
-        if existing_submission:
-            return jsonify({"msg": "You have already submitted responses for this exam."}), 403
-
-        # --- Corrected Time Validation Logic ---
-        scheduled_time_naive = exam.scheduled_time
-        if not scheduled_time_naive or not isinstance(scheduled_time_naive, datetime):
-            print(f"!!! ERROR: Cannot submit exam {exam_id}, invalid schedule time in DB: {scheduled_time_naive}")
-            return jsonify({"msg": "Exam schedule is invalid or missing."}), 500
-
-        # Assume stored naive time is IST, make it timezone-aware IST
-        try:
-            start_time_ist = pendulum.instance(scheduled_time_naive, tz=IST)
-        except Exception as e:
-             print(f"!!! ERROR: Could not convert scheduled_time {scheduled_time_naive} to pendulum instance with IST for exam {exam_id} during submission: {e}")
-             return jsonify({"msg": "Error processing exam schedule timezone."}), 500
-
-        # Validate duration
-        if not isinstance(exam.duration, int) or exam.duration <= 0:
-            print(f"!!! ERROR: Exam {exam_id} has invalid duration during submission: {exam.duration}")
-            return jsonify({"msg": "Invalid exam duration."}), 500
-
-        # Calculate end time in IST (aware)
-        end_time_ist = start_time_ist.add(minutes=exam.duration)
-
-        # Define a grace period (e.g., 30 seconds)
-        grace_period_seconds = 30
-        submission_deadline_ist = end_time_ist.add(seconds=grace_period_seconds)
-
-        # Compare current aware IST time with the aware IST deadline
-        if now_ist > submission_deadline_ist:
-            print(f"--- Submission rejected for exam {exam_id} by student {student_id}. Deadline passed. Now (IST): {now_ist}, Deadline (IST): {submission_deadline_ist} ---")
-            return jsonify({"msg": f"Submission deadline ({submission_deadline_ist.format('YYYY-MM-DD HH:mm:ss Z')}) has passed."}), 403
-        # --- End Corrected Time Validation Logic ---
-
-        answers_data = data.get('answers')
-        if not isinstance(answers_data, list):
-            return jsonify({"msg": "Invalid submission format. Expected {'answers': [ ... ]}"}), 400
-
-        valid_question_ids = {q.id for q in Question.query.filter_by(exam_id=exam_id).with_entities(Question.id)}
-        submitted_question_ids = set()
-        responses_to_add = []
-
-        # Get the naive representation of the current time for saving, matching the model definition
-        submitted_at_naive = now_ist.naive()
-
-        for answer in answers_data:
-            if not isinstance(answer, dict): continue
-            q_id = answer.get('question_id')
-            response_text = answer.get('response_text') # Can be None or empty string
-
-            # Basic validation
-            if not isinstance(q_id, int):
-                print(f"--- Skipping answer due to invalid question_id type: {q_id} ---")
-                continue
-            if q_id not in valid_question_ids:
-                print(f"--- Skipping answer for invalid question_id: {q_id} (not in exam {exam_id}) ---")
-                continue
-            if q_id in submitted_question_ids:
-                print(f"--- Skipping duplicate answer for question_id: {q_id} in exam {exam_id} ---")
-                continue # Prevent duplicate submissions for the same question
-
-            # Create the response object
-            new_response = StudentResponse(
-                student_id=student_id,
-                exam_id=exam_id,
-                question_id=q_id,
-                response_text=response_text, # Store whatever text is provided
-                # Save the naive time, consistent with model's default
-                submitted_at=submitted_at_naive
-            )
-            responses_to_add.append(new_response)
-            submitted_question_ids.add(q_id)
-
-        if not responses_to_add:
-            print(f"--- Submission attempt for exam {exam_id} by student {student_id} had no valid answers. ---")
-            return jsonify({"msg": "No valid answers found in the submission."}), 400
-
-        # Add all valid responses to the session
-        db.session.add_all(responses_to_add)
-        db.session.commit()
-        print(f"--- Exam {exam_id} submitted successfully by student {student_id}. {len(responses_to_add)} responses saved. ---")
-        return jsonify({"msg": "Exam submitted successfully."}), 200
-
-    except Exception as e:
-        db.session.rollback()
-        # Log the specific exception
-        print(f"!!! EXCEPTION during submit_exam (Exam ID: {exam_id}, Student ID: {student_id}): {type(e).__name__}: {str(e)}")
-        # import traceback; traceback.print_exc() # Uncomment for full trace
-        return jsonify({"msg": "Failed to submit exam due to a server error."}), 500
-
-
-@bp.route('/exams/submitted', methods=['GET'])
-@jwt_required()
-@student_required
-@verified_required
-def get_submitted_exams():
-    student_id = get_current_user_id()
-    if not student_id: return jsonify({"msg": "Invalid authentication token"}), 401
-
-    try:
-        submitted_exams = db.session.query(Exam).join(StudentResponse).filter(
-            StudentResponse.student_id == student_id
-        ).options(
-            joinedload(Exam.questions)
-        ).order_by(
-            Exam.scheduled_time.desc()
-        ).all()
-
-        submitted_data = [{
-            "id": e.id,
-            "title": e.title,
-            "scheduled_time": format_datetime(e.scheduled_time),  # Changed
-            "submitted_at": format_datetime(resp.submitted_at),  # Changed
-            "status": "Submitted"
-        } for e in submitted_exams for resp in StudentResponse.query.filter_by(student_id=student_id, exam_id=e.id).all()]
-
-        return jsonify(submitted_data), 200
-    except Exception as e:
-        print(f"Error fetching submitted exams for student {student_id}: {e}")
-        return jsonify({"msg": "Error fetching submitted exams."}), 500
-
-
 
 @bp.route('/exams/<int:exam_id>/take', methods=['GET'])
 @jwt_required()
 @student_required
 @verified_required
 def get_exam_questions_for_student(exam_id):
+    """Allows a student to start an active exam and retrieves its questions."""
     student_id = get_current_user_id()
     if not student_id:
         return jsonify({"msg": "Invalid authentication token"}), 401
@@ -261,39 +156,32 @@ def get_exam_questions_for_student(exam_id):
             print(f"--- Student {student_id} attempted to retake exam {exam_id} ---")
             return jsonify({"msg": "You have already submitted responses for this exam."}), 403
 
-        # --- Timezone Corrected Logic ---
-        scheduled_time_naive = exam.scheduled_time
-        if not scheduled_time_naive or not isinstance(scheduled_time_naive, datetime):
-            print(f"!!! ERROR: Exam {exam_id} has invalid scheduled_time in DB: {scheduled_time_naive}")
+        # --- Naive UTC Time Validation Logic ---
+        start_time_naive_utc = exam.scheduled_time
+        if not start_time_naive_utc or not isinstance(start_time_naive_utc, datetime):
+            print(f"!!! ERROR: Exam {exam_id} has invalid scheduled_time in DB: {start_time_naive_utc}")
             return jsonify({"msg": "Exam schedule is invalid or missing."}), 500
 
-        # Assume the stored naive time is IST, make it timezone-aware IST
-        try:
-            start_time_ist = pendulum.instance(scheduled_time_naive, tz=IST)
-        except Exception as e:
-             print(f"!!! ERROR: Could not convert scheduled_time {scheduled_time_naive} to pendulum instance with IST for exam {exam_id}: {e}")
-             return jsonify({"msg": "Error processing exam schedule timezone."}), 500
-
-        # Convert start time to UTC for reliable comparison
-        start_time_utc = start_time_ist.in_timezone(UTC)
-
-        # Validate duration
         if not isinstance(exam.duration, int) or exam.duration <= 0:
             print(f"!!! ERROR: Exam {exam_id} has invalid duration: {exam.duration}")
             return jsonify({"msg": "Invalid exam duration."}), 500
 
-        # Calculate end time in UTC
-        end_time_utc = start_time_utc.add(minutes=exam.duration)
+        # Calculate end time in naive UTC
+        try:
+             end_time_naive_utc = start_time_naive_utc + timedelta(minutes=exam.duration)
+        except TypeError:
+             print(f"!!! ERROR: Could not calculate end time for exam {exam_id} (start={start_time_naive_utc}, duration={exam.duration})")
+             return jsonify({"msg": "Error processing exam duration."}), 500
 
-        # Get current time in UTC
-        now_utc = pendulum.now(UTC)
+        # Get current time in naive UTC
+        now_naive_utc = datetime.utcnow()
 
-        # Check if the exam is currently active (using UTC times)
-        if not (start_time_utc <= now_utc < end_time_utc):
-            status = "Upcoming" if now_utc < start_time_utc else "Expired"
-            print(f"--- Exam {exam_id} access denied for student {student_id}. Status: {status}. Now (UTC): {now_utc}, Start (UTC): {start_time_utc}, End (UTC): {end_time_utc} ---")
+        # Check if the exam is currently active (using naive UTC times)
+        if not (start_time_naive_utc <= now_naive_utc < end_time_naive_utc):
+            status = "Upcoming" if now_naive_utc < start_time_naive_utc else "Expired"
+            print(f"--- Exam {exam_id} access denied for student {student_id}. Status: {status}. Now (UTC): {now_naive_utc}, Start (UTC): {start_time_naive_utc}, End (UTC): {end_time_naive_utc} ---")
             return jsonify({"msg": f"This exam is not currently active. Status: {status}"}), 403
-        # --- End Timezone Corrected Logic ---
+        # --- End Naive UTC Time Validation ---
 
         # Fetch questions (excluding sensitive info like correct_answer)
         questions = Question.query.filter_by(exam_id=exam_id).order_by(Question.id).all()
@@ -307,34 +195,183 @@ def get_exam_questions_for_student(exam_id):
             "word_limit": q.word_limit if q.question_type != QuestionType.MCQ else None
         } for q in questions]
 
-        # Calculate remaining time in seconds
-        time_remaining_seconds = max(0, int((end_time_utc - now_utc).total_seconds()))
+        # Calculate remaining time in seconds using naive UTC times
+        time_remaining_seconds = max(0, int((end_time_naive_utc - now_naive_utc).total_seconds()))
 
         print(f"--- Student {student_id} starting exam {exam_id}. Time remaining: {time_remaining_seconds}s ---")
 
         return jsonify({
             "exam_id": exam.id,
             "exam_title": exam.title,
-            # Return the original scheduled time (as IST representation)
-            "scheduled_time_ist": format_datetime(exam.scheduled_time),
+            # Return the original scheduled time (naive UTC) formatted
+            "scheduled_time_utc": format_datetime(exam.scheduled_time),
             "duration_minutes": exam.duration,
             "questions": questions_data,
             "time_remaining_seconds": time_remaining_seconds
         }), 200
 
     except Exception as e:
-        # Catch specific exceptions if needed (e.g., DB errors)
         print(f"!!! EXCEPTION in get_exam_questions_for_student (Exam ID: {exam_id}, Student ID: {student_id}): {type(e).__name__}: {str(e)}")
-        # import traceback; traceback.print_exc() # Uncomment for detailed stack trace in logs
+        # import traceback; traceback.print_exc() # For detailed debugging
         return jsonify({"msg": "An unexpected error occurred while fetching the exam questions."}), 500
 
+@bp.route('/exams/<int:exam_id>/submit', methods=['POST'])
+@jwt_required()
+@student_required
+@verified_required
+def submit_exam(exam_id):
+    """Handles the submission of answers for an exam."""
+    student_id = get_current_user_id()
+    if not student_id:
+        return jsonify({"msg": "Invalid authentication token"}), 401
 
+    # Get current time in naive UTC
+    now_naive_utc = datetime.utcnow()
+    data = request.get_json()
+    if not data:
+        return jsonify({"msg": "Missing JSON data in request."}), 400
+
+    try:
+        exam = Exam.query.get(exam_id)
+        if not exam:
+            return jsonify({"msg": "Exam not found."}), 404
+
+        # Check for existing submission
+        existing_submission = StudentResponse.query.filter_by(
+            student_id=student_id, exam_id=exam_id
+        ).first()
+        if existing_submission:
+            return jsonify({"msg": "You have already submitted responses for this exam."}), 403
+
+        # --- Naive UTC Time Validation Logic for Submission Deadline ---
+        start_time_naive_utc = exam.scheduled_time
+        if not start_time_naive_utc or not isinstance(start_time_naive_utc, datetime):
+            print(f"!!! ERROR: Cannot submit exam {exam_id}, invalid schedule time in DB: {start_time_naive_utc}")
+            return jsonify({"msg": "Exam schedule is invalid or missing."}), 500
+
+        if not isinstance(exam.duration, int) or exam.duration <= 0:
+            print(f"!!! ERROR: Exam {exam_id} has invalid duration during submission: {exam.duration}")
+            return jsonify({"msg": "Invalid exam duration."}), 500
+
+        # Calculate end time and deadline in naive UTC
+        try:
+            end_time_naive_utc = start_time_naive_utc + timedelta(minutes=exam.duration)
+            grace_period_seconds = 30 # Define a grace period (e.g., 30 seconds)
+            submission_deadline_naive_utc = end_time_naive_utc + timedelta(seconds=grace_period_seconds)
+        except TypeError:
+             print(f"!!! ERROR: Could not calculate deadline for exam {exam_id}")
+             return jsonify({"msg": "Error processing exam deadline."}), 500
+
+        # Compare current naive UTC time with the naive UTC deadline
+        if now_naive_utc > submission_deadline_naive_utc:
+            deadline_str = format_datetime(submission_deadline_naive_utc) # Format for message
+            print(f"--- Submission rejected for exam {exam_id} by student {student_id}. Deadline passed. Now (UTC): {now_naive_utc}, Deadline (UTC): {submission_deadline_naive_utc} ---")
+            return jsonify({"msg": f"Submission deadline ({deadline_str} UTC) has passed."}), 403
+        # --- End Naive UTC Time Validation ---
+
+        answers_data = data.get('answers')
+        if not isinstance(answers_data, list):
+            return jsonify({"msg": "Invalid submission format. Expected {'answers': [ ... ]}"}), 400
+
+        # Get valid question IDs for this exam
+        valid_question_ids = {q.id for q in Question.query.filter_by(exam_id=exam_id).with_entities(Question.id)}
+        submitted_question_ids = set() # Track submitted Qs to prevent duplicates
+        responses_to_add = []
+
+        # Process submitted answers
+        for answer in answers_data:
+            if not isinstance(answer, dict): continue # Skip invalid answer formats
+
+            q_id = answer.get('question_id')
+            response_text = answer.get('response_text') # Can be None or empty string
+
+            # Validate question ID
+            if not isinstance(q_id, int):
+                print(f"--- Skipping answer due to invalid question_id type: {q_id} ---")
+                continue
+            if q_id not in valid_question_ids:
+                print(f"--- Skipping answer for invalid question_id: {q_id} (not in exam {exam_id}) ---")
+                continue
+            if q_id in submitted_question_ids:
+                print(f"--- Skipping duplicate answer for question_id: {q_id} in exam {exam_id} ---")
+                continue
+
+            # Create the response object - submitted_at will use the default datetime.utcnow()
+            new_response = StudentResponse(
+                student_id=student_id,
+                exam_id=exam_id,
+                question_id=q_id,
+                response_text=response_text,
+                submitted_at=now_naive_utc # Explicitly set submission time to current UTC
+            )
+            responses_to_add.append(new_response)
+            submitted_question_ids.add(q_id) # Mark question as processed
+
+        if not responses_to_add:
+            print(f"--- Submission attempt for exam {exam_id} by student {student_id} had no valid answers. ---")
+            return jsonify({"msg": "No valid answers found in the submission."}), 400
+
+        # Add all valid responses to the session and commit
+        db.session.add_all(responses_to_add)
+        db.session.commit()
+        print(f"--- Exam {exam_id} submitted successfully by student {student_id}. {len(responses_to_add)} responses saved. ---")
+        return jsonify({"msg": "Exam submitted successfully."}), 200
+
+    except Exception as e:
+        db.session.rollback()
+        print(f"!!! EXCEPTION during submit_exam (Exam ID: {exam_id}, Student ID: {student_id}): {type(e).__name__}: {str(e)}")
+        # import traceback; traceback.print_exc() # For detailed trace
+        return jsonify({"msg": "Failed to submit exam due to a server error."}), 500
+
+@bp.route('/exams/submitted', methods=['GET'])
+@jwt_required()
+@student_required
+@verified_required
+def get_submitted_exams():
+    """Lists exams the student has already submitted."""
+    student_id = get_current_user_id()
+    if not student_id: return jsonify({"msg": "Invalid authentication token"}), 401
+
+    try:
+        # Find all responses submitted by the student
+        submissions = db.session.query(StudentResponse).filter(
+            StudentResponse.student_id == student_id
+        ).options(
+            joinedload(StudentResponse.exam) # Load the related exam info
+        ).order_by(
+            StudentResponse.submitted_at.desc() # Order by most recent submission
+        ).all()
+
+        # Use a dictionary to group by exam_id and get the latest submission time per exam
+        submitted_exams_info = {}
+        for sub in submissions:
+            if sub.exam and sub.exam_id not in submitted_exams_info:
+                submitted_exams_info[sub.exam_id] = {
+                    "id": sub.exam.id,
+                    "title": sub.exam.title,
+                    # Format naive UTC scheduled time
+                    "scheduled_time_utc": format_datetime(sub.exam.scheduled_time),
+                    # Format naive UTC submission time
+                    "submitted_at_utc": format_datetime(sub.submitted_at),
+                    "status": "Submitted"
+                }
+
+        submitted_data = list(submitted_exams_info.values())
+        # Optionally re-sort if needed, e.g., by scheduled_time desc
+        submitted_data.sort(key=lambda x: x.get("scheduled_time_utc") or "", reverse=True)
+
+        print(f"--- Found {len(submitted_data)} submitted exams for student {student_id} ---")
+        return jsonify(submitted_data), 200
+    except Exception as e:
+        print(f"!!! Error fetching submitted exams for student {student_id}: {e}")
+        return jsonify({"msg": "Error fetching submitted exams list."}), 500
 
 @bp.route('/results/my', methods=['GET'])
 @jwt_required()
 @student_required
 @verified_required
 def get_my_results():
+    """Retrieves the results for all exams submitted by the student."""
     student_id = get_current_user_id()
     if not student_id:
         return jsonify({"msg": "Invalid authentication token"}), 401
@@ -346,74 +383,75 @@ def get_my_results():
         ).options(
             # Load question and the exam it belongs to
             joinedload(StudentResponse.question).joinedload(Question.exam),
-            # Load the evaluation if it exists (left outer join behavior)
+            # Load the evaluation if it exists
             joinedload(StudentResponse.evaluation)
         ).order_by(
-            # Order by exam schedule descending, then by question ID within the exam
+            # Order by exam schedule descending, then by question ID
             Exam.scheduled_time.desc(),
-            StudentResponse.question_id.asc() # Order by question ID for consistency
-        ).join(Question).join(Exam).all() # Explicit joins for ordering
+            StudentResponse.question_id.asc()
+        ).join(Question).join(Exam).all() # Explicit joins needed for ordering by Exam field
 
         results_by_exam = {}
         for resp in responses:
             question = resp.question
-            # If question relationship didn't load or is broken, skip
             if not question:
                  print(f"!!! WARNING: Skipping response ID {resp.id} for student {student_id} due to missing question link.")
                  continue
             exam = question.exam
-            # If exam relationship didn't load, skip
             if not exam:
                  print(f"!!! WARNING: Skipping response ID {resp.id} for student {student_id} due to missing exam link (via question {question.id}).")
                  continue
 
-            evaluation = resp.evaluation # This will be None if no evaluation exists yet
+            evaluation = resp.evaluation # Will be None if no evaluation exists
 
             exam_id = exam.id
             if exam_id not in results_by_exam:
+                # Initialize structure for this exam
                 results_by_exam[exam_id] = {
                     "exam_id": exam_id,
                     "exam_title": exam.title,
-                    # Format the scheduled time (naive IST representation)
-                    "exam_scheduled_time_ist": format_datetime(exam.scheduled_time),
+                    # Format naive UTC scheduled time
+                    "exam_scheduled_time_utc": format_datetime(exam.scheduled_time),
                     "total_marks_awarded": 0.0,
                     "total_marks_possible": 0,
-                    # Default status, might change below
-                    "overall_status": "Pending Evaluation",
+                    "overall_status": "Pending Evaluation", # Default status
                     "questions": [],
-                    "_pending_count": 0 # Internal counter
+                    "_pending_count": 0 # Internal counter for unevaluated questions
                 }
 
-            # Get details for this specific question/response
+            # Process details for this specific question/response
             marks_possible = question.marks if question.marks is not None else 0
             marks_awarded = None
             feedback = "Not evaluated yet"
-            evaluated_at_iso = None
+            evaluated_at_utc_iso = None
             evaluated_by = None
             question_status = "Pending Evaluation"
 
             if evaluation:
-                marks_awarded = evaluation.marks_awarded # Could still be None if evaluation record exists but marks weren't assigned? Assume float if exists.
+                # If an evaluation exists, extract its details
+                marks_awarded = evaluation.marks_awarded # Assume float if exists
                 feedback = evaluation.feedback if evaluation.feedback else "Evaluation submitted, no feedback provided."
-                evaluated_at_iso = format_datetime(evaluation.evaluated_at) # Format evaluation time
+                evaluated_at_utc_iso = format_datetime(evaluation.evaluated_at) # Format naive UTC
                 evaluated_by = evaluation.evaluated_by
                 question_status = "Evaluated"
             else:
-                 results_by_exam[exam_id]['_pending_count'] += 1 # Increment pending counter for this exam
+                 # Increment pending counter if no evaluation exists for this response
+                 results_by_exam[exam_id]['_pending_count'] += 1
 
-            # Format submission time
-            submitted_at_iso = format_datetime(resp.submitted_at)
+            # Format naive UTC submission time
+            submitted_at_utc_iso = format_datetime(resp.submitted_at)
 
+            # Add question details to the exam's list
             results_by_exam[exam_id]['questions'].append({
                 "question_id": question.id,
                 "question_text": question.question_text,
                 "question_type": question.question_type.value,
                 "your_response": resp.response_text,
-                "submitted_at_ist": submitted_at_iso, # Assuming submitted_at is also naive IST
+                "submitted_at_utc": submitted_at_utc_iso,
                 "marks_awarded": marks_awarded,
                 "marks_possible": marks_possible,
                 "feedback": feedback,
-                "evaluated_at_ist": evaluated_at_iso, # Assuming evaluated_at is also naive IST
+                "evaluated_at_utc": evaluated_at_utc_iso,
                 "evaluated_by": evaluated_by,
                 "status": question_status
             })
@@ -421,7 +459,6 @@ def get_my_results():
             # Update exam totals
             results_by_exam[exam_id]['total_marks_possible'] += marks_possible
             if marks_awarded is not None:
-                # Use try-except for robust float conversion
                 try:
                     results_by_exam[exam_id]['total_marks_awarded'] += float(marks_awarded)
                 except (ValueError, TypeError):
@@ -431,17 +468,17 @@ def get_my_results():
         final_results = []
         for exam_id, data in results_by_exam.items():
             if data['_pending_count'] == 0:
-                 data['overall_status'] = "Results Declared"
-            else:
-                 # You could add "Partially Evaluated" if needed based on counts
-                 data['overall_status'] = f"Pending Evaluation ({data['_pending_count']} questions)"
+                 data['overall_status'] = "Results Declared" # All questions evaluated
+            # Keep "Pending Evaluation" if count > 0, or add "Partially Evaluated" if needed
+            # else: data['overall_status'] = f"Pending Evaluation ({data['_pending_count']} questions)"
 
-            del data['_pending_count'] # Remove internal counter
+            del data['_pending_count'] # Remove internal counter from final output
             final_results.append(data)
 
+        print(f"--- Generated results for {len(final_results)} exams for student {student_id} ---")
         return jsonify(final_results), 200
 
     except Exception as e:
         print(f"!!! EXCEPTION in get_my_results (Student ID: {student_id}): {type(e).__name__}: {str(e)}")
-        # import traceback; traceback.print_exc() # Uncomment for detailed stack trace
+        # import traceback; traceback.print_exc() # For detailed trace
         return jsonify({"msg": "An unexpected error occurred while fetching your results."}), 500

@@ -17,6 +17,7 @@ export class ExamManagementComponent implements OnInit {
   editExam: Exam | null = null;
   error: string | null = null;
 
+  
   constructor(private apiService: ApiService) {}
 
   ngOnInit() {

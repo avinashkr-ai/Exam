@@ -1,8 +1,8 @@
 """Initial database schema setup
 
-Revision ID: 0c11ce1e4cb5
+Revision ID: 81a19105d58b
 Revises: 
-Create Date: 2025-04-14 21:15:27.919736
+Create Date: 2025-04-16 19:38:48.310684
 
 """
 from alembic import op
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = '0c11ce1e4cb5'
+revision = '81a19105d58b'
 down_revision = None
 branch_labels = None
 depends_on = None
@@ -25,7 +25,7 @@ def upgrade():
     sa.Column('password_hash', sa.String(length=256), nullable=True),
     sa.Column('role', sa.Enum('ADMIN', 'TEACHER', 'STUDENT', name='userrole'), nullable=False),
     sa.Column('is_verified', sa.Boolean(), nullable=False),
-    sa.Column('created_at', sa.DateTime(), nullable=True),
+    sa.Column('created_at', sa.DateTime(), nullable=False),
     sa.PrimaryKeyConstraint('id')
     )
     with op.batch_alter_table('users', schema=None) as batch_op:
@@ -38,7 +38,7 @@ def upgrade():
     sa.Column('scheduled_time', sa.DateTime(), nullable=False),
     sa.Column('duration', sa.Integer(), nullable=False),
     sa.Column('created_by', sa.Integer(), nullable=False),
-    sa.Column('created_at', sa.DateTime(), nullable=True),
+    sa.Column('created_at', sa.DateTime(), nullable=False),
     sa.ForeignKeyConstraint(['created_by'], ['users.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
@@ -60,7 +60,7 @@ def upgrade():
     sa.Column('exam_id', sa.Integer(), nullable=False),
     sa.Column('question_id', sa.Integer(), nullable=False),
     sa.Column('response_text', sa.Text(), nullable=True),
-    sa.Column('submitted_at', sa.DateTime(), nullable=True),
+    sa.Column('submitted_at', sa.DateTime(), nullable=False),
     sa.ForeignKeyConstraint(['exam_id'], ['exams.id'], ),
     sa.ForeignKeyConstraint(['question_id'], ['questions.id'], ),
     sa.ForeignKeyConstraint(['student_id'], ['users.id'], ),
@@ -72,7 +72,7 @@ def upgrade():
     sa.Column('evaluated_by', sa.String(length=50), nullable=False),
     sa.Column('marks_awarded', sa.Float(), nullable=False),
     sa.Column('feedback', sa.Text(), nullable=True),
-    sa.Column('evaluated_at', sa.DateTime(), nullable=True),
+    sa.Column('evaluated_at', sa.DateTime(), nullable=False),
     sa.ForeignKeyConstraint(['response_id'], ['student_responses.id'], ),
     sa.PrimaryKeyConstraint('id'),
     sa.UniqueConstraint('response_id')

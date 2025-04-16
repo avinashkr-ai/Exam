@@ -1,73 +1,94 @@
 # app/__init__.py
+
 from flask import Flask
 from flask_jwt_extended import JWTManager
 from flask_cors import CORS
-from config import Config
-from app.models import User, UserRole # Import if needed for create-admin
-from werkzeug.security import generate_password_hash
-from app.extensions import db, migrate
-import click
+from config import Config # Import application configuration
+from app.models import User, UserRole # Import models used by create-admin command
+from werkzeug.security import generate_password_hash # For hashing admin password
+from app.extensions import db, migrate # Import initialized extensions
+import click # For Flask CLI commands
+import os # Potentially needed for env vars, though Config handles it
 
-# Initialize JWTManager here
+# Initialize JWTManager globally but configure within create_app
 jwt = JWTManager()
 
-# --- REMOVE THIS SECTION ---
-# @jwt.user_identity_loader
-# def user_identity_lookup(user_identity_dict):
-#    # ... function body ...
-#    pass # Remove the whole function and decorator
-# --- END REMOVAL ---
+# Removed the @jwt.user_identity_loader as we use custom claims
 
 def create_app(config_class=Config):
+    """Factory function to create the Flask application instance."""
     app = Flask(__name__)
+    # Load configuration from Config object
     app.config.from_object(config_class)
-    CORS(app)
 
+    # Enable Cross-Origin Resource Sharing (CORS)
+    # Configure origins properly for production deployments
+    CORS(app) # Allow all origins for development, restrict in production
+
+    # Initialize database and migration engine with the app context
     db.init_app(app)
     migrate.init_app(app, db)
-    # Initialize JWT *without* the loader callback
+
+    # Initialize JWTManager with the app context
+    # It will now use the JWT_SECRET_KEY from the app config
     jwt.init_app(app)
 
-    # Register Blueprints (no changes here)
+    # --- Register Blueprints ---
+    # Import blueprint objects
     from app.routes.auth import bp as auth_bp
-    app.register_blueprint(auth_bp, url_prefix='/auth')
     from app.routes.admin import bp as admin_bp
-    app.register_blueprint(admin_bp, url_prefix='/admin')
     from app.routes.teacher import bp as teacher_bp
-    app.register_blueprint(teacher_bp, url_prefix='/teacher')
     from app.routes.student import bp as student_bp
-    app.register_blueprint(student_bp, url_prefix='/student')
 
+    # Register blueprints with URL prefixes
+    app.register_blueprint(auth_bp, url_prefix='/auth')
+    app.register_blueprint(admin_bp, url_prefix='/admin')
+    app.register_blueprint(teacher_bp, url_prefix='/teacher')
+    app.register_blueprint(student_bp, url_prefix='/student')
+    print("Blueprints registered.")
+
+    # --- Simple Health Check Route ---
     @app.route('/')
     def index():
-        return "Online Exam Portal API is running!"
+        """Basic route to check if the API is running."""
+        return jsonify({"message": "Online Exam Portal API is running!"}), 200
 
-    # create-admin command (no changes needed here)
+    # --- CLI Command to Create Initial Admin User ---
     @app.cli.command('create-admin')
     def create_admin():
-        """Creates an admin user."""
-        name = input('Admin Name: ')
-        email = input('Email: ')
-        password = input('Password: ')
+        """Creates the initial administrator user via CLI."""
+        print("--- Create Admin User ---")
+        name = input('Enter Admin Name: ')
+        email = input('Enter Admin Email: ')
+        password = input('Enter Admin Password: ')
 
+        # Basic input validation
         if not name or not email or not password:
-            print("Error: Name, email, and password are required.")
+            click.echo("Error: Name, email, and password cannot be empty.", err=True)
             return
 
+        # Check if admin or user with this email already exists
         existing_user = User.query.filter_by(email=email).first()
         if existing_user:
-            print(f"Error: User with email '{email}' already exists.")
+            click.echo(f"Error: User with email '{email}' already exists (Role: {existing_user.role.name}).", err=True)
             return
 
+        # Create the admin user instance
+        # Admin is automatically verified
         admin_user = User(name=name, email=email, role=UserRole.ADMIN, is_verified=True)
-        admin_user.set_password(password)
+        admin_user.set_password(password) # Hash the password
 
         try:
+            # Add to session and commit to database
             db.session.add(admin_user)
             db.session.commit()
-            print(f"Admin user '{name}' ({email}) created successfully.")
+            click.echo(f"Admin user '{name}' ({email}) created successfully.")
         except Exception as e:
+             # Rollback in case of database error
              db.session.rollback()
-             print(f"Error creating admin user: {e}")
+             click.echo(f"Error creating admin user: {e}", err=True)
 
+    print("Flask app creation completed.")
     return app
+
+# No changes were needed in this file for the UTC refactoring.
