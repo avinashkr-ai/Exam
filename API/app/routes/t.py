@@ -1,16 +1,17 @@
-# app/utils/helpers.py
-
 from flask_jwt_extended import get_jwt
-# No longer need pendulum or specific timezones here
+import pendulum
+
+# Define IST timezone (kept for other uses, if needed)
+IST = pendulum.timezone('Asia/Kolkata')
 
 def format_datetime(dt):
-    """Formats a naive datetime object as ISO string. Returns None if dt is None."""
+    """Formats a datetime object as ISO string without timezone conversion."""
     if dt is None:
         return None
-    # isoformat() on a naive datetime produces string without timezone info
+    # Return naive datetime as-is in ISO format
     return dt.isoformat()
 
-# JWT helper functions (remain the same)
+# Existing JWT helper functions
 def get_current_user_id():
     jwt = get_jwt()
     user_info = jwt.get('user_info', {})

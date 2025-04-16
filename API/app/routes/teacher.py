@@ -1,14 +1,18 @@
-# app/routes/teacher.py
 from flask import Blueprint, request, jsonify
 from app.extensions import db
 from app.models import Exam, Question, QuestionType, StudentResponse, Evaluation, UserRole
 from app.utils.decorators import teacher_required, verified_required
 from flask_jwt_extended import jwt_required
-from app.utils.helpers import get_current_user_id, ensure_aware_utc  # Added ensure_aware_utc
-from datetime import datetime, timezone, timedelta
-from sqlalchemy.orm import joinedload, Session
+from app.utils.helpers import get_current_user_id, format_datetime
+from datetime import datetime
+from sqlalchemy.orm import joinedload
+import pendulum
+
 
 bp = Blueprint('teacher', __name__)
+
+# Define IST timezone
+IST = pendulum.timezone('Asia/Kolkata')
 
 # --- Dashboard and Exam Management ---
 
@@ -46,18 +50,12 @@ def create_exam():
         return jsonify({"msg": "Missing fields"}), 400
 
     try:
-        if isinstance(scheduled_time_str, str):
-            if scheduled_time_str.endswith('Z'):
-                scheduled_time_str = scheduled_time_str[:-1] + '+00:00'
-            scheduled_time = datetime.fromisoformat(scheduled_time_str)
-            if scheduled_time.tzinfo is None:
-                scheduled_time = scheduled_time.replace(tzinfo=timezone.utc)
-        else:
-            raise ValueError("scheduled_time must be string")
-
+        # Parse scheduled_time as IST, store as naive datetime
+        scheduled_time = pendulum.parse(scheduled_time_str, tz=IST).naive()
         duration = int(duration)
-        assert duration > 0
-    except (ValueError, TypeError, AssertionError) as e:
+        if duration <= 0:
+            raise ValueError("Duration must be positive")
+    except (ValueError, TypeError) as e:
         return jsonify({"msg": f"Invalid format: {e}"}), 400
 
     new_exam = Exam(
@@ -75,8 +73,8 @@ def create_exam():
             "exam": {
                 "id": new_exam.id,
                 "title": new_exam.title,
-                "scheduled_time": ensure_aware_utc(new_exam.scheduled_time).isoformat() if new_exam.scheduled_time else None,
-                "created_at": ensure_aware_utc(new_exam.created_at).isoformat() if new_exam.created_at else None
+                "scheduled_time": format_datetime(new_exam.scheduled_time),  # Changed
+                "created_at": format_datetime(new_exam.created_at)  # Changed
             }
         }), 201
     except Exception as e:
@@ -98,9 +96,9 @@ def get_my_exams():
             "id": e.id,
             "title": e.title,
             "description": e.description,
-            "scheduled_time": ensure_aware_utc(e.scheduled_time).isoformat() if e.scheduled_time else None,
+            "scheduled_time": format_datetime(e.scheduled_time),  # Changed
             "duration": e.duration,
-            "created_at": ensure_aware_utc(e.created_at).isoformat() if e.created_at else None
+            "created_at": format_datetime(e.created_at)  # Changed
         } for e in exams]
         return jsonify(exams_data), 200
     except Exception as e:
@@ -121,9 +119,9 @@ def get_exam_details(exam_id):
             "id": exam.id,
             "title": exam.title,
             "description": exam.description,
-            "scheduled_time": ensure_aware_utc(exam.scheduled_time).isoformat() if exam.scheduled_time else None,
+            "scheduled_time": format_datetime(exam.scheduled_time),  # Changed
             "duration": exam.duration,
-            "created_at": ensure_aware_utc(exam.created_at).isoformat() if exam.created_at else None
+            "created_at": format_datetime(exam.created_at)  # Changed
         }
         return jsonify(exam_data), 200
     except Exception as e:
@@ -155,25 +153,20 @@ def update_exam(exam_id):
     if 'scheduled_time' in data:
         try:
             stime_str = data['scheduled_time']
-            if isinstance(stime_str, str):
-                if stime_str.endswith('Z'):
-                    stime_str = stime_str[:-1] + '+00:00'
-                stime = datetime.fromisoformat(stime_str)
-                if stime.tzinfo is None:
-                    stime = stime.replace(tzinfo=timezone.utc)
-                exam.scheduled_time = stime
-                updated = True
-            else:
-                raise ValueError("scheduled_time must be string")
+            # Parse as IST, store as naive
+            stime = pendulum.parse(stime_str, tz=IST).naive()
+            exam.scheduled_time = stime
+            updated = True
         except (ValueError, TypeError) as e:
             return jsonify({"msg": f"Invalid scheduled_time: {e}"}), 400
     if 'duration' in data:
         try:
             dur = int(data['duration'])
-            assert dur > 0
+            if dur <= 0:
+                raise ValueError("Duration must be positive")
             exam.duration = dur
             updated = True
-        except (ValueError, TypeError, AssertionError):
+        except (ValueError, TypeError):
             return jsonify({"msg": "Invalid duration"}), 400
 
     if not updated:
@@ -187,9 +180,9 @@ def update_exam(exam_id):
                 "id": exam.id,
                 "title": exam.title,
                 "description": exam.description,
-                "scheduled_time": ensure_aware_utc(exam.scheduled_time).isoformat() if exam.scheduled_time else None,
+                "scheduled_time": format_datetime(exam.scheduled_time),  # Changed
                 "duration": exam.duration,
-                "created_at": ensure_aware_utc(exam.created_at).isoformat() if exam.created_at else None
+                "created_at": format_datetime(exam.created_at)  # Changed
             }
         }), 200
     except Exception as e:
@@ -354,7 +347,7 @@ def get_single_question(exam_id, question_id):
         question = db.session.query(Question).join(Exam).filter(
             Question.id == question_id,
             Question.exam_id == exam_id,
-            Exam.created_by == teacher_id
+            Exam.created_by == teacher_id  # Changed = to ==
         ).first_or_404("Question not found or access denied")
 
         question_data = {
@@ -524,8 +517,6 @@ def delete_question(exam_id, question_id):
         print(f"Error deleting question: {e}")
         return jsonify({"msg": "Delete failed"}), 500
 
-# --- View Results ---
-
 @bp.route('/exams/results/<int:exam_id>', methods=['GET'])
 @jwt_required()
 @teacher_required
@@ -571,9 +562,9 @@ def get_exam_results(exam_id):
 
             marks_awarded = evaluation.marks_awarded if evaluation and evaluation.marks_awarded is not None else None
             feedback = evaluation.feedback if evaluation else "Not Evaluated Yet"
-            evaluated_at = ensure_aware_utc(evaluation.evaluated_at).isoformat() if evaluation and evaluation.evaluated_at else None
+            evaluated_at = format_datetime(evaluation.evaluated_at).isoformat() if evaluation and evaluation.evaluated_at else None
             evaluated_by = evaluation.evaluated_by if evaluation else None
-            submitted_at = ensure_aware_utc(resp.submitted_at).isoformat() if resp.submitted_at else None
+            submitted_at = format_datetime(resp.submitted_at).isoformat() if resp.submitted_at else None
 
             if marks_awarded is not None:
                 results_by_student[student_id]['total_marks_awarded'] += float(marks_awarded)
