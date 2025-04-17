@@ -335,7 +335,7 @@ def trigger_ai_evaluation(response_id):
                 evaluated_by=f"System (Empty Response - Admin Trigger: {admin_id})",
                 marks_awarded=0.0,
                 feedback="Student response was empty.",
-                # evaluated_at default is handled by model (datetime.utcnow)
+                evaluated_at=datetime.now()
             )
             db.session.add(evaluation)
             db.session.commit()
