@@ -1,100 +1,169 @@
-```backend/
-    |-- app/
-    |   |-- __init__.py         # Application factory, blueprint registration
-    |   |-- config.py           # Configuration settings
-    |   |-- models.py           # SQLAlchemy database models
-    |   |-- schemas.py          # Marshmallow schemas for serialization/validation
-    |   |-- extensions.py       # Flask extensions initialization (db, migrate, jwt, ma, cors, bcrypt)
-    |   |-- utils.py            # Decorators, password hashing etc.
-    |   |-- auth/               # Authentication Blueprint
-    |   |   |-- __init__.py     # Defines the auth blueprint
-    |   |   `-- routes.py       # Login, register, refresh endpoints
-    |   |-- users/              # User Management Blueprint (Admin focused)
-    |   |   |-- __init__.py     # Defines the users blueprint
-    |   |   `-- routes.py       # Verify, list, manage users
-    |   |-- exams/              # Exam Management Blueprint
-    |   |   |-- __init__.py     # Defines the exams blueprint
-    |   |   `-- routes.py       # CRUD exams, publish, list available
-    |   |-- questions/          # Question Management Blueprint
-    |   |   |-- __init__.py     # Defines the questions blueprint
-    |   |   `-- routes.py       # CRUD questions within exams
-    |   |-- attempts/           # Exam Attempt & Submission Blueprint
-    |   |   |-- __init__.py     # Defines the attempts blueprint
-    |   |   `-- routes.py       # Get exam for attempt, submit responses
-    |   |-- evaluations/        # Evaluation Blueprint
-    |   |   |-- __init__.py     # Defines the evaluations blueprint
-    |   |   `-- routes.py       # Trigger AI evaluation
-    |   |-- results/            # Results Viewing Blueprint
-    |   |   |-- __init__.py     # Defines the results blueprint
-    |   |   `-- routes.py       # View results (student/teacher/admin)
-    |   `-- services/           # Business logic / External services
-    |       |-- __init__.py
-    |       `-- ai_evaluator.py # AI evaluation logic
-    |-- migrations/             # Flask-Migrate migration files
-    |-- .env                    # Environment variables (DATABASE_URL, SECRET_KEY, JWT_SECRET_KEY, GEMINI_API_KEY)
-    |-- .flaskenv               # Flask environment variables (FLASK_APP, FLASK_DEBUG)
-    |-- requirements.txt        # Python dependencies
-    `-- run.py                  # Script to run the Flask application```
-
-````frontend/
-    |-- src/
-    |   |-- app/
-    |   |   |-- core/                # Singleton services, guards, interceptors, core layout
-    |   |   |   |-- components/
-    |   |   |   |   |-- navbar/
-    |   |   |   |-- guards/
-    |   |   |   |   |-- auth.guard.ts
-    |   |   |   |   |-- role.guard.ts
-    |   |   |   |-- interceptors/
-    |   |   |   |   |-- token.interceptor.ts
-    |   |   |   |-- services/         # Often put services directly here or subfolder like auth/
-    |   |   |   |   |-- auth.service.ts
-    |   |   |   |   |-- api.service.ts  # Optional generic wrapper
-    |   |   |   |-- core.module.ts
-    |   |   |-- shared/              # Reusable components, pipes, directives
-    |   |   |   |-- components/      # e.g., exam-list, question-display
-    |   |   |   |-- pipes/
-    |   |   |   |-- directives/
-    |   |   |   |-- shared.module.ts
-    |   |   |-- auth/                # Auth feature module (Login, Register, Profile)
-    |   |   |   |-- components/
-    |   |   |   |   |-- login/
-    |   |   |   |   |-- register/
-    |   |   |   |   |-- profile/      # Optional profile view
-    |   |   |   |-- auth-routing.module.ts
-    |   |   |   |-- auth.module.ts
-    |   |   |-- teacher/             # Teacher feature module
-    |   |   |   |-- components/
-    |   |   |   |   |-- dashboard/
-    |   |   |   |   |-- exam-create/
-    |   |   |   |   |-- exam-detail/  # View/Edit exam, manage questions, schedule
-    |   |   |   |   |-- submission-list/ # View submissions for an exam
-    |   |   |   |   |-- grade-submission/ # Detail/Grade view for a submission
-    |   |   |   |-- teacher-routing.module.ts
-    |   |   |   |-- teacher.module.ts
-    |   |   |-- student/             # Student feature module
-    |   |   |   |-- components/
-    |   |   |   |   |-- dashboard/    # View available exams
-    |   |   |   |   |-- exam-taking/ # Component to take the exam
-    |   |   |   |   |-- submission-history/ # View own past submissions
-    |   |   |   |-- student-routing.module.ts
-    |   |   |   |-- student.module.ts
-    |   |   |-- models/              # Data structure interfaces
-    |   |   |   |-- user.model.ts
-    |   |   |   |-- exam.model.ts
-    |   |   |   |-- question.model.ts
-    |   |   |   |-- submission.model.ts
-    |   |   |   |-- ...
-    |   |   |-- app-routing.module.ts
-    |   |   |-- app.component.ts
-    |   |   |-- app.component.html
-    |   |   |-- app.module.ts
-    |   |-- assets/
-    |   |-- environments/
-    |   |   |-- environment.ts       # Development settings (e.g., API URL)
-    |   |   |-- environment.prod.ts  # Production settings
-    |   |-- ...
-    |-- angular.json
-    |-- package.json
-    |-- tsconfig.json
+```
+├── API
+    ├── README.md
+    ├── app
+    │   ├── __init__.py
+    │   ├── __pycache__
+    │   │   ├── __init__.cpython-311.pyc
+    │   │   ├── extensions.cpython-311.pyc
+    │   │   └── models.cpython-311.pyc
+    │   ├── extensions.py
+    │   ├── models.py
+    │   ├── routes
+    │   │   ├── __init__.py
+    │   │   ├── __pycache__
+    │   │   │   ├── __init__.cpython-311.pyc
+    │   │   │   ├── admin.cpython-311.pyc
+    │   │   │   ├── auth.cpython-311.pyc
+    │   │   │   ├── student.cpython-311.pyc
+    │   │   │   └── teacher.cpython-311.pyc
+    │   │   ├── admin.py
+    │   │   ├── auth.py
+    │   │   ├── student.py
+    │   │   ├── t.py
+    │   │   └── teacher.py
+    │   ├── services
+    │   │   ├── __init__.py
+    │   │   └── ai_evaluation.py
+    │   └── utils
+    │   │   ├── __pycache__
+    │   │       ├── decorators.cpython-311.pyc
+    │   │       └── helpers.cpython-311.pyc
+    │   │   ├── decorators.py
+    │   │   └── helpers.py
+    ├── config.py
+    ├── instance
+    │   └── app.db
+    ├── migrations
+    │   ├── README
+    │   ├── alembic.ini
+    │   ├── env.py
+    │   ├── script.py.mako
+    │   └── versions
+    │   │   └── 81a19105d58b_initial_database_schema_setup.py
+    ├── requirements.txt
+    ├── run.sh
+    ├── setup.sh
+    └── wsgi.py
+├── Project-Structure.md
+├── admin.md
+├── new.md
+├── online-exam-portal
+    ├── .editorconfig
+    ├── .gitignore
+    ├── .vscode
+    │   ├── extensions.json
+    │   ├── launch.json
+    │   └── tasks.json
+    ├── angular.json
+    ├── docs
+    │   ├── favicon.ico
+    │   ├── index.html
+    │   ├── main-GW67GNQ5.js
+    │   ├── polyfills-FFHMD2TL.js
+    │   ├── scripts-EEEIPNC3.js
+    │   └── styles-NEB3GHJL.css
+    ├── package-lock.json
+    ├── package.json
+    ├── public
+    │   └── favicon.ico
+    ├── src
+    │   ├── app
+    │   │   ├── admin
+    │   │   │   └── components
+    │   │   │   │   ├── dashboard
+    │   │   │   │       ├── dashboard.component.html
+    │   │   │   │       └── dashboard.component.ts
+    │   │   │   │   ├── evaluate-response
+    │   │   │   │       ├── evaluate-response.component.html
+    │   │   │   │       └── evaluate-response.component.ts
+    │   │   │   │   ├── results-overview
+    │   │   │   │       ├── results-overview.component.html
+    │   │   │   │       └── results-overview.component.ts
+    │   │   │   │   └── user-management
+    │   │   │   │       ├── user-management.component.html
+    │   │   │   │       └── user-management.component.ts
+    │   │   ├── app.component.html
+    │   │   ├── app.component.scss
+    │   │   ├── app.component.ts
+    │   │   ├── app.config.ts
+    │   │   ├── app.routes.ts
+    │   │   ├── auth
+    │   │   │   └── components
+    │   │   │   │   ├── login
+    │   │   │   │       ├── login.component.html
+    │   │   │   │       └── login.component.ts
+    │   │   │   │   └── register
+    │   │   │   │       ├── register.component.html
+    │   │   │   │       └── register.component.ts
+    │   │   ├── core
+    │   │   │   ├── guards
+    │   │   │   │   └── auth.guard.ts
+    │   │   │   ├── interceptors
+    │   │   │   │   └── auth.interceptor.ts
+    │   │   │   ├── models
+    │   │   │   │   ├── evaluation.ts
+    │   │   │   │   ├── exam.ts
+    │   │   │   │   ├── question.ts
+    │   │   │   │   ├── response.ts
+    │   │   │   │   └── user.ts
+    │   │   │   └── services
+    │   │   │   │   ├── api.service.ts
+    │   │   │   │   ├── auth.service.ts
+    │   │   │   │   └── error-handler.service.ts
+    │   │   ├── shared
+    │   │   │   └── components
+    │   │   │   │   ├── error-alert
+    │   │   │   │       ├── error-alert.component.html
+    │   │   │   │       └── error-alert.component.ts
+    │   │   │   │   ├── footer
+    │   │   │   │       ├── footer.component.html
+    │   │   │   │       └── footer.component.ts
+    │   │   │   │   ├── header
+    │   │   │   │       ├── header.component.html
+    │   │   │   │       └── header.component.ts
+    │   │   │   │   └── loading-spinner
+    │   │   │   │       ├── loading-spinner.component.html
+    │   │   │   │       └── loading-spinner.component.ts
+    │   │   ├── student
+    │   │   │   └── components
+    │   │   │   │   ├── dashboard
+    │   │   │   │       ├── dashboard.component.html
+    │   │   │   │       └── dashboard.component.ts
+    │   │   │   │   ├── exam-list
+    │   │   │   │       ├── exam-list.component.html
+    │   │   │   │       └── exam-list.component.ts
+    │   │   │   │   ├── exam-take
+    │   │   │   │       ├── exam-take.component.html
+    │   │   │   │       └── exam-take.component.ts
+    │   │   │   │   └── results
+    │   │   │   │       ├── results.component.html
+    │   │   │   │       └── results.component.ts
+    │   │   └── teacher
+    │   │   │   └── components
+    │   │   │       ├── dashboard
+    │   │   │           ├── dashboard.component.html
+    │   │   │           └── dashboard.component.ts
+    │   │   │       ├── exam-management
+    │   │   │           ├── exam-management.component.html
+    │   │   │           └── exam-management.component.ts
+    │   │   │       ├── exam-results
+    │   │   │           ├── exam-results.component.html
+    │   │   │           └── exam-results.component.ts
+    │   │   │       └── question-management
+    │   │   │           ├── question-management.component.html
+    │   │   │           └── question-management.component.ts
+    │   ├── environments
+    │   │   ├── environment.prod.ts
+    │   │   └── environment.ts
+    │   ├── index.html
+    │   ├── main.ts
+    │   └── styles.scss
+    ├── tsconfig.app.json
+    ├── tsconfig.json
+    └── tsconfig.spec.json
+├── report.md
+├── student.md
+├── synopsis.md
+└── teacher.md
 ```

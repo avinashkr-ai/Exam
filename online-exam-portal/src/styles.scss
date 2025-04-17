@@ -1,15 +1,75 @@
 /* You can add global styles to this file, and also import other style files */
+:root {
+  --primary-color: #0d6efd;
+  --secondary-color: #6c757d;
+  --success-color: #198754;
+  --background-color: #f8f9fa;
+}
+
 html, body {
-    height: 100%;
-    margin: 0;
+  height: 100%;
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background-color: var(--background-color);
+}
+
+main {
+  flex: 1;
+  padding: 2rem 0;
+}
+
+/* Custom utility classes */
+.shadow-hover {
+  transition: box-shadow 0.3s ease-in-out;
+  &:hover {
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+  }
+}
+
+.card {
+  border-radius: 0.5rem;
+  border: none;
+  box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+}
+
+.btn {
+  border-radius: 0.25rem;
+  padding: 0.5rem 1rem;
+  font-weight: 500;
+  transition: all 0.2s ease-in-out;
+  
+  &:hover {
+    transform: translateY(-1px);
+  }
+}
+
+/* Form styles */
+.form-control {
+  border-radius: 0.25rem;
+  border: 1px solid #dee2e6;
+  padding: 0.5rem 0.75rem;
+  
+  &:focus {
+    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+  }
+}
+
+/* Table styles */
+.table {
+  thead th {
+    background-color: var(--background-color);
+    border-bottom: 2px solid #dee2e6;
   }
   
-  body {
-    display: flex;
-    flex-direction: column;
-    min-height: 100vh;
+  tbody tr {
+    &:hover {
+      background-color: rgba(0, 0, 0, 0.02);
+    }
   }
-  
-  main {
-    flex: 1;
-  }
+}

@@ -1,57 +1,96 @@
 <div class="container mt-4">
-  <h2>Student Dashboard</h2>
-  <nav class="nav nav-pills mb-3">
-    <a class="nav-link active" routerLink="/student" routerLinkActive="active">Dashboard</a>
-    <a class="nav-link" routerLink="/student/exam-list" routerLinkActive="active">Available Exams</a>
-    <a class="nav-link" routerLink="/student/results" routerLinkActive="active">Results</a>
+  <!-- Navigation Bar -->
+  <nav class="nav nav-pills nav-fill mb-4 bg-white p-2 rounded shadow-sm">
+    <a class="nav-link active d-flex align-items-center justify-content-center" routerLink="/student" routerLinkActive="active">
+      <i class="bi bi-house-door me-2"></i>Dashboard
+    </a>
+    <a class="nav-link d-flex align-items-center justify-content-center" routerLink="/student/exams" routerLinkActive="active">
+      <i class="bi bi-journal-text me-2"></i>Available Exams
+    </a>
+    <a class="nav-link d-flex align-items-center justify-content-center" routerLink="/student/results" routerLinkActive="active">
+      <i class="bi bi-graph-up me-2"></i>Results
+    </a>
   </nav>
-  <div *ngIf="stats; else loading">
-    <div class="row">
-      <div class="col-md-6">
-        <div class="card">
-          <div class="card-body">
-            <h5 class="card-title">Completed Exams</h5>
-            <p class="card-text">{{ stats.completed_exams_count }}</p>
-            <a routerLink="/student/results" class="btn btn-primary">View Results</a>
-          </div>
-        </div>
-      </div>
-      <div class="col-md-6">
-        <div class="card">
-          <div class="card-body">
-            <h5 class="card-title">Upcoming Exams</h5>
-            <p class="card-text">{{ stats.upcoming_exams.length }}</p>
-            <a routerLink="/student/exam-list" class="btn btn-primary">View Exams</a>
-          </div>
-        </div>
+
+  <div class="row mb-4">
+    <div class="col-12">
+      <h2 class="mb-4"><i class="bi bi-person-circle me-2"></i>Student Dashboard</h2>
+      <div *ngIf="error" class="alert alert-danger d-flex align-items-center" role="alert">
+        <i class="bi bi-exclamation-triangle-fill me-2"></i>
+        {{ error }}
       </div>
     </div>
-    <h3 class="mt-4">Upcoming Exams</h3>
-    <div *ngIf="stats.upcoming_exams.length; else noExams">
-      <table class="table table-striped">
-        <thead>
-          <tr>
-            <th>Title</th>
-            <th>Scheduled Time</th>
-            <th>Action</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr *ngFor="let exam of stats.upcoming_exams">
-            <td>{{ exam.title }}</td>
-            <td>{{ exam.scheduled_time | date:'medium' }}</td>
-            <td>
-              <a routerLink="/student/exam-take/{{exam.id}}" class="btn btn-sm btn-primary">Take Exam</a>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-    <ng-template #noExams>
-      <p>No upcoming exams.</p>
-    </ng-template>
   </div>
-  <ng-template #loading>
-    <p>Loading dashboard data...</p>
-  </ng-template>
+
+  <!-- Stats Cards -->
+  <div class="row mb-4">
+    <div class="col-md-4">
+      <div class="card shadow-sm h-100">
+        <div class="card-body text-center">
+          <i class="bi bi-check-circle text-success display-4 mb-3"></i>
+          <h5 class="card-title">Completed Exams</h5>
+          <p class="card-text display-6">{{ completedExamsCount }}</p>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="card shadow-sm h-100">
+        <div class="card-body text-center">
+          <i class="bi bi-calendar-event text-primary display-4 mb-3"></i>
+          <h5 class="card-title">Upcoming Exams</h5>
+          <p class="card-text display-6">{{ upcomingExams.length }}</p>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="card shadow-sm h-100">
+        <div class="card-body text-center">
+          <i class="bi bi-trophy text-warning display-4 mb-3"></i>
+          <h5 class="card-title">Average Score</h5>
+          <p class="card-text display-6">85%</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Upcoming Exams -->
+  <div class="card shadow-sm">
+    <div class="card-header bg-white py-3">
+      <h3 class="mb-0"><i class="bi bi-calendar-check me-2"></i>Upcoming Exams</h3>
+    </div>
+    <div class="card-body p-0">
+      <div *ngIf="upcomingExams.length; else noExams">
+        <div class="table-responsive">
+          <table class="table table-hover mb-0">
+            <thead class="table-light">
+              <tr>
+                <th scope="col">Title</th>
+                <th scope="col">Scheduled Time</th>
+                <th scope="col">Duration</th>
+                <th scope="col">Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let exam of upcomingExams">
+                <td>{{ exam.title }}</td>
+                <td>{{ exam.scheduled_time_utc | date:'medium':'UTC' }}</td>
+                <td>60 mins</td>
+                <td>
+                  <button class="btn btn-sm btn-outline-primary">
+                    <i class="bi bi-box-arrow-in-right me-1"></i>Start
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <ng-template #noExams>
+        <div class="text-center py-5">
+          <i class="bi bi-calendar-x text-muted display-1"></i>
+          <p class="text-muted mt-3">No upcoming exams scheduled.</p>
+        </div>
+      </ng-template>
+    </div>
+  </div>
 </div>

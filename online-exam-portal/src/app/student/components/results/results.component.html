@@ -1,33 +1,74 @@
 <div class="container mt-4">
-    <h2>My Results</h2>
-    <app-loading-spinner *ngIf="loading"></app-loading-spinner>
-    <app-error-alert *ngIf="error" [message]="error"></app-error-alert>
-    <div *ngIf="!loading && !error">
-      <div *ngFor="let result of results" class="card mb-3">
-        <div class="card-header">
-          {{ result.exam_title }} ({{ result.exam_scheduled_time | date:'medium' }})
-        </div>
-        <div class="card-body">
-          <p>Total: {{ result.total_marks_awarded || 'Not Fully Evaluated' }} / {{ result.total_marks_possible }}</p>
-          <table class="table table-sm">
-            <thead>
-              <tr>
-                <th>Question</th>
-                <th>Your Answer</th>
-                <th>Marks</th>
-                <th>Feedback</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr *ngFor="let question of result.questions">
-                <td>{{ question.question_text }}</td>
-                <td>{{ question.your_response }}</td>
-                <td>{{ question.marks_awarded || 'Not Evaluated' }} / {{ question.marks_possible }}</td>
-                <td>{{ question.feedback }}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+  <!-- Navigation Bar -->
+   <style>
+    .nav-link.active {
+  font-weight: bold;
+}
+.card-header {
+  font-size: 1.25rem;
+}
+.table th, .table td {
+  vertical-align: middle;
+}
+.alert {
+  margin-bottom: 1rem;
+}
+.card {
+  margin-bottom: 1.5rem;
+}
+   </style>
+  <nav class="nav nav-pills mb-4">
+    <a class="nav-link" routerLink="/student" routerLinkActive="active">Dashboard</a>
+    <a class="nav-link" routerLink="/student/exams" routerLinkActive="active">Available Exams</a>
+    <a class="nav-link active" routerLink="/student/results" routerLinkActive="active">Results</a>
+  </nav>
+
+  <h2>My Results</h2>
+  <div *ngIf="error" class="alert alert-danger" role="alert">
+    {{ error }}
+  </div>
+
+  <div *ngIf="results.length; else noResults">
+    <div *ngFor="let result of results" class="card mb-3">
+      <div class="card-header bg-info text-white">
+        {{ result.exam_title }} ({{ result.exam_scheduled_time_utc | date:'medium':'UTC' }})
+      </div>
+      <div class="card-body">
+        <p><strong>Total Marks:</strong> {{ result.total_marks_awarded }} / {{ result.total_marks_possible }}</p>
+        <p><strong>Status:</strong> {{ result.overall_status }}</p>
+        <h5>Question Details</h5>
+        <table class="table table-striped table-hover">
+          <thead>
+            <tr>
+              <th scope="col">Question</th>
+              <th scope="col">Type</th>
+              <th scope="col">Your Response</th>
+              <th scope="col">Marks</th>
+              <th scope="col">Feedback</th>
+              <th scope="col">Evaluated At</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let question of result.questions">
+              <td>{{ question.question_text }}</td>
+              <td>{{ question.question_type }}</td>
+              <td>{{ question.your_response || 'No response' }}</td>
+              <td>
+                {{ question.marks_awarded !== null ? question.marks_awarded : 'Pending' }} / {{ question.marks_possible }}
+              </td>
+              <td>{{ question.feedback || 'Not evaluated yet' }}</td>
+              <td>
+                {{ question.evaluated_at_utc ? (question.evaluated_at_utc | date:'medium':'UTC') : 'N/A' }}
+              </td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </div>
   </div>
+  <ng-template #noResults>
+    <div class="alert alert-info">
+      No results available.
+    </div>
+  </ng-template>
+</div>

@@ -53,10 +53,11 @@ export const routes: Routes = [
     data: { role: 'Student' },
     children: [
       { path: '', component: StudentDashboard },
-      { path: 'exam-list', component: ExamListComponent },
-      { path: 'exam-take/:id', component: ExamTakeComponent },
+      { path: 'exam', component: ExamListComponent },
+      { path: 'exam/:id/take', component: ExamTakeComponent },
       { path: 'results', component: StudentResults }
     ]
+
   },
   { path: '**', redirectTo: '/auth/login' }
 ];

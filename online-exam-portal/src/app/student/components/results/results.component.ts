@@ -1,42 +1,34 @@
 import { Component, OnInit } from '@angular/core';
-import { ApiService } from '../../../core/services/api.service';
-import { ErrorHandlerService } from '../../../core/services/error-handler.service';
-import { LoadingSpinnerComponent } from '../../../shared/components/loading-spinner/loading-spinner.component';
-import { ErrorAlertComponent } from '../../../shared/components/error-alert/error-alert.component';
 import { CommonModule } from '@angular/common';
+import { RouterModule } from '@angular/router';
+import { ApiService } from '../../../core/services/api.service';
+import { Result } from '../../../core/models/result';
 
 @Component({
   selector: 'app-results',
   standalone: true,
-  imports: [CommonModule, LoadingSpinnerComponent, ErrorAlertComponent],
+  imports: [CommonModule, RouterModule],
   templateUrl: './results.component.html'
 })
 export class ResultsComponent implements OnInit {
-  results: any[] = [];
-  loading = false;
+  results: Result[] = [];
   error: string | null = null;
 
-  constructor(
-    private apiService: ApiService,
-    private errorHandler: ErrorHandlerService
-  ) {}
+  constructor(private apiService: ApiService) {}
 
   ngOnInit() {
     this.loadResults();
   }
 
   loadResults() {
-    this.loading = true;
-    this.error = null;
     this.apiService.getStudentResults().subscribe({
       next: (results) => {
         this.results = results;
-        this.loading = false;
+        console.log('Results loaded:', results);
       },
       error: (err) => {
-        this.loading = false;
-        this.error = err.error?.msg || 'Failed to load results';
-        this.errorHandler.handleError(this.error || '');
+        this.error = err.error?.msg || 'Failed to load results.';
+        console.error('Error loading results:', err);
       }
     });
   }

@@ -1,25 +1,107 @@
 <div class="container mt-4">
-    <h2>Available Exams</h2>
-    <app-loading-spinner *ngIf="loading"></app-loading-spinner>
-    <app-error-alert *ngIf="error" [message]="error"></app-error-alert>
-    <table class="table table-striped" *ngIf="!loading && !error">
-      <thead>
-        <tr>
-          <th>Title</th>
-          <th>Scheduled Time</th>
-          <th>Status</th>
-          <th>Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr *ngFor="let exam of exams">
-          <td>{{ exam.title }}</td>
-          <td>{{ exam.scheduled_time | date:'medium' }}</td>
-          <td>{{ exam.status || 'Unknown' }}</td>
-          <td>
-            <a class="btn btn-sm btn-primary" [routerLink]="['/student/exam-take', exam.id]" *ngIf="exam.status === 'Active'">Take Exam</a>
-          </td>
-        </tr>
-      </tbody>
-    </table>
+  <!-- Navigation Bar -->
+  <nav class="nav nav-pills nav-fill mb-4 bg-white p-2 rounded shadow-sm">
+    <a class="nav-link d-flex align-items-center justify-content-center" routerLink="/student" routerLinkActive="active">
+      <i class="bi bi-house-door me-2"></i>Dashboard
+    </a>
+    <a class="nav-link active d-flex align-items-center justify-content-center" routerLink="/student/exams" routerLinkActive="active">
+      <i class="bi bi-journal-text me-2"></i>Available Exams
+    </a>
+    <a class="nav-link d-flex align-items-center justify-content-center" routerLink="/student/results" routerLinkActive="active">
+      <i class="bi bi-graph-up me-2"></i>Results
+    </a>
+  </nav>
+
+  <div class="row mb-4">
+    <div class="col-12">
+      <h2 class="mb-4"><i class="bi bi-journal-text me-2"></i>Available Exams</h2>
+      <div *ngIf="error" class="alert alert-danger d-flex align-items-center" role="alert">
+        <i class="bi bi-exclamation-triangle-fill me-2"></i>
+        {{ error }}
+      </div>
+    </div>
   </div>
+
+  <div *ngIf="exams.length; else noExams" class="card shadow-sm">
+    <div class="card-header bg-white py-3">
+      <div class="row align-items-center">
+        <div class="col">
+          <h5 class="mb-0">Exam Schedule</h5>
+        </div>
+        <div class="col-auto">
+          <div class="input-group">
+            <span class="input-group-text bg-light border-end-0">
+              <i class="bi bi-search"></i>
+            </span>
+            <input type="text" class="form-control border-start-0" placeholder="Search exams...">
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table table-hover mb-0">
+          <thead class="table-light">
+            <tr>
+              <th scope="col">Title</th>
+              <th scope="col">Description</th>
+              <th scope="col">Scheduled Time</th>
+              <th scope="col">Duration</th>
+              <th scope="col">Status</th>
+              <th scope="col">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let exam of exams">
+              <td>
+                <div class="d-flex align-items-center">
+                  <i class="bi bi-file-text me-2 text-primary"></i>
+                  {{ exam.title }}
+                </div>
+              </td>
+              <td>{{ exam.description || 'N/A' }}</td>
+              <td>
+                <div class="d-flex align-items-center">
+                  <i class="bi bi-clock me-2 text-muted"></i>
+                  {{ exam.scheduled_time_utc | date:'medium':'UTC' }}
+                </div>
+              </td>
+              <td>
+                <span class="badge bg-info">
+                  {{ exam.duration_minutes }} min
+                </span>
+              </td>
+              <td>
+                <span [class]="'badge ' + (exam.status === 'Active' ? 'bg-success' : 'bg-secondary')">
+                  {{ exam.status }}
+                </span>
+              </td>
+              <td>
+                <a
+                  *ngIf="exam.status === 'Active'"
+                  routerLink="/student/exams/{{exam.id}}/take"
+                  class="btn btn-sm btn-primary"
+                  title="Take Exam"
+                >
+                  <i class="bi bi-box-arrow-in-right me-1"></i>
+                  Take Exam
+                </a>
+                <span *ngIf="exam.status !== 'Active'" class="text-muted">
+                  <i class="bi bi-clock-history me-1"></i>
+                  Not yet active
+                </span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <ng-template #noExams>
+    <div class="text-center py-5">
+      <i class="bi bi-journal-x text-muted display-1"></i>
+      <p class="text-muted mt-3">No available exams at the moment.</p>
+    </div>
+  </ng-template>
+</div>

@@ -94,8 +94,8 @@ def create_exam():
         description=description,
         scheduled_time=scheduled_time_naive_utc, # Store naive UTC
         duration=duration,
-        created_by=teacher_id
-        # created_at uses default=datetime.utcnow
+        created_by=teacher_id,
+        created_at=datetime.utcnow()
     )
     try:
         db.session.add(new_exam)

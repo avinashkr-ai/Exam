@@ -1,25 +1,46 @@
 <div class="container mt-4">
-    <h2>{{ exam?.exam_title }}</h2>
-    <p>Time Remaining: {{ timeRemaining | async | date:'mm:ss' }}</p>
-    <app-loading-spinner *ngIf="loading"></app-loading-spinner>
-    <app-error-alert *ngIf="error" [message]="error"></app-error-alert>
-    <form (ngSubmit)="submitExam()" *ngIf="!loading && !error">
-      <div *ngFor="let question of exam?.questions; let i = index" class="card mb-3">
-        <div class="card-body">
-          <h5>{{ question.question_text }} ({{ question.marks }} marks)</h5>
-          <div *ngIf="question.question_type === 'MCQ'">
-            <div *ngFor="let option of question.options | keyvalue">
-              <div class="form-check">
-                <input class="form-check-input" type="radio" [name]="'q' + i" [(ngModel)]="answers[i].response_text" [value]="option.key" [id]="'q' + i + '-' + option.key">
-                <label class="form-check-label" [for]="'q' + i + '-' + option.key">{{ option.value }}</label>
-              </div>
-            </div>
-          </div>
-          <div *ngIf="question.question_type !== 'MCQ'">
-            <textarea class="form-control" [(ngModel)]="answers[i].response_text" [name]="'q' + i"></textarea>
-          </div>
-        </div>
-      </div>
-      <button type="submit" class="btn btn-primary" [disabled]="loading">Submit Exam</button>
-    </form>
+  <!-- Navigation Bar -->
+   <style>
+    .nav-link.active {
+  font-weight: bold;
+}
+.card-header {
+  font-size: 1.25rem;
+}
+.alert {
+  margin-bottom: 1rem;
+}
+   </style>
+  <nav class="nav nav-pills mb-4">
+    <a class="nav-link" routerLink="/student" routerLinkActive="active">Dashboard</a>
+    <a class="nav-link" routerLink="/student/exams" routerLinkActive="active">Available Exams</a>
+    <a class="nav-link" routerLink="/student/results" routerLinkActive="active">Results</a>
+  </nav>
+
+  <h2>Take Exam</h2>
+  <div *ngIf="error" class="alert alert-danger" role="alert">
+    {{ error }}
   </div>
+
+  <div *ngIf="exam; else loading" class="card">
+    <div class="card-header bg-primary text-white">
+      {{ exam.exam_title }}
+    </div>
+    <div class="card-body">
+      <p><strong>Time Remaining:</strong> {{ exam.time_remaining_seconds }} seconds</p>
+      <h5>Questions</h5>
+      <div *ngFor="let question of exam.questions" class="mb-3">
+        <p><strong>{{ question.question_text }}</strong> ({{ question.marks }} marks)</p>
+        <p>Type: {{ question.question_type }}</p>
+        <p *ngIf="question.options">Options: {{ question.options | json }}</p>
+        <p *ngIf="question.word_limit">Word Limit: {{ question.word_limit }}</p>
+      </div>
+      <p class="text-muted">Note: Exam submission UI to be implemented.</p>
+    </div>
+  </div>
+  <ng-template #loading>
+    <div class="alert alert-info">
+      Loading exam...
+    </div>
+  </ng-template>
+</div>

@@ -1,36 +1,25 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
-import { ActivatedRoute, Router } from '@angular/router';
+import { Component, OnInit } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { RouterModule, ActivatedRoute } from '@angular/router';
 import { ApiService } from '../../../core/services/api.service';
-import { ErrorHandlerService } from '../../../core/services/error-handler.service';
-import { interval, Observable, Subject } from 'rxjs';
-import { takeUntil, map } from 'rxjs/operators';
-import { LoadingSpinnerComponent } from '../../../shared/components/loading-spinner/loading-spinner.component';
-import { ErrorAlertComponent } from '../../../shared/components/error-alert/error-alert.component';
-import { CommonModule, KeyValuePipe } from '@angular/common';
-import { FormsModule } from '@angular/forms';
+import { Question } from '../../../core/models/question';
 
 @Component({
   selector: 'app-exam-take',
   standalone: true,
-  imports: [CommonModule, FormsModule, KeyValuePipe, LoadingSpinnerComponent, ErrorAlertComponent],
+  imports: [CommonModule, RouterModule],
   templateUrl: './exam-take.component.html'
 })
-export class ExamTakeComponent implements OnInit, OnDestroy {
+export class ExamTakeComponent implements OnInit {
   examId: number;
-  exam: any = null;
-  answers: { question_id: number; response_text: string }[] = [];
-  timeRemaining: Observable<number> | null = null;
-  loading = false;
+  exam: { exam_id: number; exam_title: string; questions: Question[]; time_remaining_seconds: number } | null = null;
   error: string | null = null;
-  private destroy$ = new Subject<void>();
 
   constructor(
     private apiService: ApiService,
-    private route: ActivatedRoute,
-    private router: Router,
-    private errorHandler: ErrorHandlerService
+    private route: ActivatedRoute
   ) {
-    this.examId = Number(this.route.snapshot.paramMap.get('id'));
+    this.examId = +this.route.snapshot.paramMap.get('id')!;
   }
 
   ngOnInit() {
@@ -38,54 +27,15 @@ export class ExamTakeComponent implements OnInit, OnDestroy {
   }
 
   loadExam() {
-    this.loading = true;
-    this.error = null;
     this.apiService.takeExam(this.examId).subscribe({
-      next: (exam) => {
-        this.exam = exam;
-        this.answers = exam.questions.map((q: any) => ({
-          question_id: q.id,
-          response_text: ''
-        }));
-        this.timeRemaining = interval(1000).pipe(
-          takeUntil(this.destroy$),
-          map(() => {
-            exam.time_remaining_seconds--;
-            if (exam.time_remaining_seconds <= 0) {
-              this.submitExam();
-            }
-            return exam.time_remaining_seconds;
-          })
-        );
-        this.loading = false;
+      next: (data) => {
+        this.exam = data;
+        console.log('Exam loaded:', data);
       },
       error: (err) => {
-        this.loading = false;
-        this.error = err.error?.msg || 'Failed to load exam';
-        this.errorHandler.handleError(this.error || '');
+        this.error = err.error?.msg || 'Failed to load exam.';
+        console.error('Error loading exam:', err);
       }
     });
-  }
-
-  submitExam() {
-    this.loading = true;
-    this.error = null;
-    this.apiService.submitExam(this.examId, this.answers).subscribe({
-      next: () => {
-        this.loading = false;
-        this.destroy$.next();
-        this.router.navigate(['/student/results']);
-      },
-      error: (err) => {
-        this.loading = false;
-        this.error = err.error?.msg || 'Failed to submit exam';
-        this.errorHandler.handleError(this.error || '');
-      }
-    });
-  }
-
-  ngOnDestroy() {
-    this.destroy$.next();
-    this.destroy$.complete();
   }
 }

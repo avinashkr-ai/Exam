@@ -13,11 +13,10 @@ import { Exam } from '../../../core/models/exam';
 })
 export class ExamManagementComponent implements OnInit {
   exams: Exam[] = [];
-  newExam = { title: '', description: '', scheduled_time: '', duration: 0 };
+  newExam = { title: '', description: '', scheduled_time_utc: '', duration_minutes: 0 };
   editExam: Exam | null = null;
   error: string | null = null;
 
-  
   constructor(private apiService: ApiService) {}
 
   ngOnInit() {
@@ -38,13 +37,13 @@ export class ExamManagementComponent implements OnInit {
   }
 
   createExam() {
-    if (!this.newExam.title || !this.newExam.scheduled_time || this.newExam.duration <= 0) {
+    if (!this.newExam.title || !this.newExam.scheduled_time_utc || this.newExam.duration_minutes <= 0) {
       this.error = 'Please fill all required fields.';
       return;
     }
     this.apiService.createExam(this.newExam).subscribe({
       next: () => {
-        this.newExam = { title: '', description: '', scheduled_time: '', duration: 0 };
+        this.newExam = { title: '', description: '', scheduled_time_utc: '', duration_minutes: 0 };
         this.error = null;
         this.loadExams();
       },
@@ -57,18 +56,27 @@ export class ExamManagementComponent implements OnInit {
 
   startEdit(exam: Exam) {
     this.editExam = { ...exam };
-    // Convert scheduled_time to datetime-local format (YYYY-MM-DDTHH:MM)
-    if (this.editExam.scheduled_time) {
-      this.editExam.scheduled_time = new Date(this.editExam.scheduled_time).toISOString().slice(0, 16);
+    if (this.editExam.scheduled_time_utc) {
+      this.editExam.scheduled_time_utc = new Date(this.editExam.scheduled_time_utc).toISOString().slice(0, 16);
     }
   }
 
   updateExam() {
-    if (!this.editExam || !this.editExam.title || !this.editExam.scheduled_time || this.editExam.duration <= 0) {
+    if (!this.editExam) {
+      this.error = 'No exam selected for editing.';
+      return;
+    }
+    const { title, scheduled_time_utc, duration_minutes } = this.editExam;
+    if (!title || !scheduled_time_utc || duration_minutes == null || duration_minutes <= 0) {
       this.error = 'Please fill all required fields.';
       return;
     }
-    this.apiService.updateExam(this.editExam.id, this.editExam).subscribe({
+    this.apiService.updateExam(this.editExam.id, {
+      title,
+      description: this.editExam.description,
+      scheduled_time_utc: new Date(scheduled_time_utc).toISOString(),
+      duration_minutes
+    }).subscribe({
       next: () => {
         this.editExam = null;
         this.error = null;
@@ -79,6 +87,21 @@ export class ExamManagementComponent implements OnInit {
         console.error('Error updating exam:', err);
       }
     });
+  }
+
+  deleteExam(examId: number, examTitle: string) {
+    if (confirm(`Are you sure you want to delete the exam "${examTitle}"?`)) {
+      this.apiService.deleteExam(examId).subscribe({
+        next: () => {
+          this.error = null;
+          this.loadExams();
+        },
+        error: (err) => {
+          this.error = err.error?.msg || 'Failed to delete exam.';
+          console.error('Error deleting exam:', err);
+        }
+      });
+    }
   }
 
   cancelEdit() {

@@ -1,33 +1,38 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
-import { HttpClient } from '@angular/common/http';
-import { environment } from '../../../../environments/environment';
+import { ApiService } from '../../../core/services/api.service';
 import { Exam } from '../../../core/models/exam';
 
-interface StudentStats {
-  completed_exams_count: number;
-  upcoming_exams: Exam[];
-}
-
 @Component({
-  selector: 'app-student-dashboard',
+  selector: 'DashboardComponent',
   standalone: true,
   imports: [CommonModule, RouterModule],
   templateUrl: './dashboard.component.html'
 })
-export class DashboardComponent implements OnInit {
-  stats: StudentStats | null = null;
 
-  constructor(private http: HttpClient) {}
+export class DashboardComponent implements OnInit {
+  completedExamsCount: number = 0;
+  upcomingExams: Exam[] = [];
+  error: string | null = null;
+
+  constructor(private apiService: ApiService) {}
 
   ngOnInit() {
-    this.http.get<StudentStats>(`${environment.apiUrl}/student/dashboard`).subscribe({
+    this.loadDashboard();
+  }
+
+  loadDashboard() {
+    this.apiService.getStudentDashboard().subscribe({
       next: (data) => {
-        this.stats = data;
-        console.log('Student stats:', data);
+        this.completedExamsCount = data.completed_exams_count;
+        this.upcomingExams = data.upcoming_exams;
+        console.log('Dashboard loaded:', data);
       },
-      error: (err) => console.error('Error fetching student stats:', err)
+      error: (err) => {
+        this.error = err.error?.msg || 'Failed to load dashboard.';
+        console.error('Error loading dashboard:', err);
+      }
     });
   }
 }

@@ -1,29 +1,93 @@
 <div class="container mt-4">
-    <h2>Results Overview</h2>
-    <app-loading-spinner *ngIf="loading"></app-loading-spinner>
-    <app-error-alert *ngIf="error" [message]="error"></app-error-alert>
-    <table class="table table-striped" *ngIf="!loading && !error">
-      <thead>
-        <tr>
-          <th>Student</th>
-          <th>Exam</th>
-          <th>Question</th>
-          <th>Marks</th>
-          <th>Evaluated By</th>
-          <th>Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr *ngFor="let result of results">
-          <td>{{ result.student_name }}</td>
-          <td>{{ result.exam_title }}</td>
-          <td>{{ result.question_text }}</td>
-          <td>{{ result.marks_awarded }}</td>
-          <td>{{ result.evaluated_by }}</td>
-          <td>
-            <button class="btn btn-sm btn-primary" [routerLink]="['/admin/evaluate-response', result.response_id]">Evaluate</button>
-          </td>
-        </tr>
-      </tbody>
-    </table>
+  <!-- Navigation Bar -->
+  <nav class="nav nav-pills nav-fill mb-4 bg-white p-2 rounded shadow-sm">
+    <a class="nav-link d-flex align-items-center justify-content-center" routerLink="/admin" routerLinkActive="active">
+      <i class="bi bi-house-door me-2"></i>Dashboard
+    </a>
+    <a class="nav-link d-flex align-items-center justify-content-center" routerLink="/admin/user-management" routerLinkActive="active">
+      <i class="bi bi-people me-2"></i>User Management
+    </a>
+    <a class="nav-link active d-flex align-items-center justify-content-center" routerLink="/admin/results-overview" routerLinkActive="active">
+      <i class="bi bi-graph-up me-2"></i>Results Overview
+    </a>
+  </nav>
+
+  <div class="row mb-4">
+    <div class="col-12">
+      <h2 class="mb-4"><i class="bi bi-graph-up me-2"></i>Results Overview</h2>
+      <app-error-alert *ngIf="error" [message]="error"></app-error-alert>
+    </div>
   </div>
+
+  <div class="card shadow-sm">
+    <div class="card-header bg-white py-3">
+      <div class="row align-items-center">
+        <div class="col">
+          <h5 class="mb-0"><i class="bi bi-clipboard-data me-2"></i>Exam Results</h5>
+        </div>
+        <div class="col-auto">
+          <div class="input-group">
+            <span class="input-group-text bg-light border-end-0">
+              <i class="bi bi-search"></i>
+            </span>
+            <input type="text" class="form-control border-start-0" placeholder="Search results...">
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body p-0">
+      <app-loading-spinner *ngIf="loading"></app-loading-spinner>
+      <div *ngIf="!loading && !error">
+        <div class="table-responsive">
+          <table class="table table-hover mb-0">
+            <thead class="table-light">
+              <tr>
+                <th scope="col">Student</th>
+                <th scope="col">Exam</th>
+                <th scope="col">Question</th>
+                <th scope="col">Marks</th>
+                <th scope="col">Evaluated By</th>
+                <th scope="col">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let result of results">
+                <td>
+                  <div class="d-flex align-items-center">
+                    <i class="bi bi-person-circle me-2 text-primary"></i>
+                    {{ result.student_name }}
+                  </div>
+                </td>
+                <td>
+                  <div class="d-flex align-items-center">
+                    <i class="bi bi-journal-text me-2 text-success"></i>
+                    {{ result.exam_title }}
+                  </div>
+                </td>
+                <td>
+                  <div class="text-truncate" style="max-width: 200px;" title="{{ result.question_text }}">
+                    {{ result.question_text }}
+                  </div>
+                </td>
+                <td>
+                  <span class="badge bg-info">{{ result.marks_awarded }}</span>
+                </td>
+                <td>
+                  <div class="d-flex align-items-center">
+                    <i class="bi bi-person-check me-2 text-muted"></i>
+                    {{ result.evaluated_by }}
+                  </div>
+                </td>
+                <td>
+                  <button class="btn btn-sm btn-primary" [routerLink]="['/admin/evaluate-response', result.response_id]">
+                    <i class="bi bi-pencil-square me-1"></i>Evaluate
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
