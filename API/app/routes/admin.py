@@ -8,6 +8,7 @@ from app.utils.helpers import get_current_user_id, format_datetime # Import help
 from flask_jwt_extended import jwt_required # For protecting routes
 from sqlalchemy.orm import joinedload # For efficient loading of related objects
 from datetime import datetime # Standard datetime library (mainly for type hints or potential parsing)
+from app.services.ai_evaluation import evaluate_response_with_gemini # Import AI evaluation service
 
 # Removed pendulum import as it's no longer needed
 
@@ -294,12 +295,11 @@ def get_all_results():
 def trigger_ai_evaluation(response_id):
     """Triggers AI evaluation for a specific student response."""
     print(f"\n*** Trigger AI Evaluation Endpoint for Response ID: {response_id} ***")
-    # Import the AI evaluation service function locally to avoid circular imports if service uses models
-    try:
-        from app.services.ai_evaluation import evaluate_response_with_gemini
-    except ImportError:
-         print("!!! FATAL ERROR: AI evaluation service (app.services.ai_evaluation) not found.")
-         return jsonify({"msg": "AI Evaluation service is unavailable."}), 503 # Service Unavailable
+    # # Import the AI evaluation service function locally to avoid circular imports if service uses models
+    # try:
+    # except ImportError:
+    #      print("!!! FATAL ERROR: AI evaluation service (app.services.ai_evaluation) not found.")
+    #      return jsonify({"msg": "AI Evaluation service is unavailable."}), 503 # Service Unavailable
 
     admin_id = get_current_user_id()
     if not admin_id: return jsonify({"msg": "Could not identify requesting admin user."}), 401

@@ -137,7 +137,9 @@ def get_available_exams():
 @student_required
 @verified_required
 def get_exam_questions_for_student(exam_id):
-    """Allows a student to start an active exam and retrieves its questions."""
+    """Allows a student to start an active exam and retrieves its questions.
+       If the exam is not active, returns a 403 error with the scheduled time.
+    """
     student_id = get_current_user_id()
     if not student_id:
         return jsonify({"msg": "Invalid authentication token"}), 401
@@ -175,22 +177,35 @@ def get_exam_questions_for_student(exam_id):
 
         # Get current time in naive UTC
         now_naive_utc = datetime.utcnow()
+        # add 5:30 hours to naive UTC time
+        now_naive_utc = now_naive_utc + timedelta(hours=5, minutes=30)
 
         # Check if the exam is currently active (using naive UTC times)
         if not (start_time_naive_utc <= now_naive_utc < end_time_naive_utc):
             status = "Upcoming" if now_naive_utc < start_time_naive_utc else "Expired"
             print(f"--- Exam {exam_id} access denied for student {student_id}. Status: {status}. Now (UTC): {now_naive_utc}, Start (UTC): {start_time_naive_utc}, End (UTC): {end_time_naive_utc} ---")
-            return jsonify({"msg": f"This exam is not currently active. Status: {status}"}), 403
+
+            # --- MODIFIED RESPONSE for non-active exams ---
+            # Format the scheduled time for the response message
+            scheduled_time_iso = format_datetime(start_time_naive_utc)
+
+            # Return 403 Forbidden, but include the status and scheduled time in the body
+            return jsonify({
+                "msg": f"This exam is not currently active. Status: {status}",
+                "scheduled_time_utc": scheduled_time_iso # Include the exam's start time
+            }), 403
+            # --- END MODIFICATION ---
+
         # --- End Naive UTC Time Validation ---
 
         # Fetch questions (excluding sensitive info like correct_answer)
+        # (Code to fetch questions remains the same as before)
         questions = Question.query.filter_by(exam_id=exam_id).order_by(Question.id).all()
         questions_data = [{
             "id": q.id,
             "question_text": q.question_text,
             "question_type": q.question_type.value,
             "marks": q.marks,
-            # Only include options for MCQ, exclude correct_answer
             "options": q.options if q.question_type == QuestionType.MCQ else None,
             "word_limit": q.word_limit if q.question_type != QuestionType.MCQ else None
         } for q in questions]
@@ -200,11 +215,11 @@ def get_exam_questions_for_student(exam_id):
 
         print(f"--- Student {student_id} starting exam {exam_id}. Time remaining: {time_remaining_seconds}s ---")
 
+        # (Code to return successful response remains the same)
         return jsonify({
             "exam_id": exam.id,
             "exam_title": exam.title,
-            # Return the original scheduled time (naive UTC) formatted
-            "scheduled_time_utc": format_datetime(exam.scheduled_time),
+            "scheduled_time_utc": format_datetime(exam.scheduled_time), # Use helper here too
             "duration_minutes": exam.duration,
             "questions": questions_data,
             "time_remaining_seconds": time_remaining_seconds
@@ -214,6 +229,7 @@ def get_exam_questions_for_student(exam_id):
         print(f"!!! EXCEPTION in get_exam_questions_for_student (Exam ID: {exam_id}, Student ID: {student_id}): {type(e).__name__}: {str(e)}")
         # import traceback; traceback.print_exc() # For detailed debugging
         return jsonify({"msg": "An unexpected error occurred while fetching the exam questions."}), 500
+
 
 @bp.route('/exams/<int:exam_id>/submit', methods=['POST'])
 @jwt_required()

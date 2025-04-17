@@ -25,9 +25,9 @@ except Exception as e:
     pass
 
 # Configure the generative model details
-# Using Gemini 1.5 Flash as preferred model
+# ***** CORRECTED MODEL NAME *****
 MODEL_NAME = "gemini-1.5-flash-latest"
-# MODEL_NAME = "gemini-pro" # Fallback option
+# MODEL_NAME = "gemini-pro" # Fallback option (if needed)
 
 generation_config = {
     "temperature": 0.3,       # Lower temperature for more deterministic evaluation
@@ -50,6 +50,7 @@ model = None # Initialize model as None
 try:
     # Check if API key was successfully loaded before attempting initialization
     if Config.GEMINI_API_KEY:
+        print(f"--- Initializing Gemini Model: {MODEL_NAME} ---") # Added print statement
         model = genai.GenerativeModel(
             model_name=MODEL_NAME,
             generation_config=generation_config,
@@ -62,7 +63,8 @@ try:
 
 except Exception as e:
     # Catch errors during model initialization (e.g., invalid model name, API issues)
-    print(f"ERROR: Failed to initialize Gemini model '{MODEL_NAME}': {e}")
+    # ***** MORE SPECIFIC ERROR LOGGING *****
+    print(f"ERROR: Failed to initialize Gemini model '{MODEL_NAME}'. Check if the model name is valid and the API key is correct. Error: {e}")
     # model remains None
 
 # Retry decorator for robustness against transient API issues
@@ -80,11 +82,14 @@ def generate_gemini_response_with_retry(prompt):
              feedback = getattr(response, 'prompt_feedback', None)
              block_reason = getattr(feedback, 'block_reason', None) if feedback else None
              if block_reason:
+                 # ***** CLEARER BLOCK REASON LOGGING *****
+                 print(f"!!! Gemini response blocked by safety settings. Reason: {block_reason}")
                  raise ValueError(f"Gemini response blocked due to safety settings: {block_reason}")
              else:
                  # Check if candidate data exists but is empty (less common)
                  candidates = getattr(response, 'candidates', [])
                  if not candidates or not getattr(candidates[0], 'content', None):
+                    print("!!! Gemini response appears empty or incomplete (no parts/content).")
                     raise ValueError("Gemini response was empty or incomplete (no parts/content).")
                  else:
                      # Handle cases where parts is empty but candidates might have info (unlikely with default settings)
@@ -133,6 +138,8 @@ def parse_evaluation_response(text_response, max_marks):
         if isinstance(marks, (int, float)) and isinstance(feedback, str) and feedback.strip():
              validated_marks = float(marks)
              if not (0 <= validated_marks <= max_marks):
+                # ***** CLEARER RANGE ERROR *****
+                print(f"!!! Parsed marks '{validated_marks}' are outside the valid range [0, {max_marks}]")
                 raise ValueError(f"Parsed marks '{validated_marks}' are outside the valid range [0, {max_marks}]")
              print(f"Successfully parsed JSON response. Marks: {validated_marks}")
              return validated_marks, feedback.strip()
@@ -140,6 +147,8 @@ def parse_evaluation_response(text_response, max_marks):
              missing_or_invalid = []
              if not isinstance(marks, (int, float)): missing_or_invalid.append("'marks_awarded' (number)")
              if not isinstance(feedback, str) or not feedback.strip(): missing_or_invalid.append("'feedback' (non-empty string)")
+             # ***** CLEARER TYPE ERROR *****
+             print(f"!!! Parsed JSON has missing or invalid types for: {', '.join(missing_or_invalid)}. JSON: {data}")
              raise ValueError(f"Parsed JSON has missing or invalid types for: {', '.join(missing_or_invalid)}")
 
     except json.JSONDecodeError:
@@ -163,6 +172,8 @@ def parse_evaluation_response(text_response, max_marks):
                     marks = float(marks_str)
                     # Validate marks range immediately
                     if not (0 <= marks <= max_marks):
+                        # ***** CLEARER RANGE ERROR (Fallback) *****
+                        print(f"!!! Parsed marks '{marks}' from structured text are outside valid range [0, {max_marks}]")
                         raise ValueError(f"Parsed marks '{marks}' from structured text are outside valid range [0, {max_marks}]")
                     marks_found = True
                     print(f"Found marks line, parsed marks: {marks}")
@@ -184,8 +195,12 @@ def parse_evaluation_response(text_response, max_marks):
         final_feedback = "\n".join(feedback_lines).strip()
 
         if not marks_found:
+             # ***** CLEARER FALLBACK ERROR *****
+             print(f"!!! Could not find/parse valid '{marks_line_prefix}' line in range [0, {max_marks}] in fallback.")
              raise ValueError(f"Could not find or parse a valid '{marks_line_prefix}' line within range [0, {max_marks}].")
         if not final_feedback:
+             # ***** CLEARER FALLBACK ERROR *****
+             print(f"!!! Could not find/parse '{feedback_line_prefix}' content in fallback.")
              raise ValueError(f"Could not find or parse '{feedback_line_prefix}' content.")
 
         print(f"Successfully parsed structured text response. Marks: {marks}")
@@ -194,14 +209,15 @@ def parse_evaluation_response(text_response, max_marks):
     except ValueError as ve:
          # Re-raise ValueErrors from parsing or validation
          error_msg = f"Failed to parse Gemini response: {ve}. Raw response snippet:\n---\n{text_response[:300]}...\n---"
-         print(error_msg)
+         print(f"!!! {error_msg}") # Print detailed message before raising
          raise ValueError(error_msg) # Keep original error type
 
     except Exception as e:
         # Catch any other unexpected errors during parsing
         error_msg = f"Unexpected error parsing Gemini response: {e}. Raw response snippet:\n---\n{text_response[:300]}...\n---"
-        print(error_msg)
+        print(f"!!! {error_msg}") # Print detailed message before raising
         raise ValueError(error_msg) # Wrap as ValueError
+
 
 def evaluate_response_with_gemini(question_text, student_answer, word_limit, max_marks, question_type):
     """
@@ -213,13 +229,15 @@ def evaluate_response_with_gemini(question_text, student_answer, word_limit, max
     """
     if not model:
          # Added check here as well for safety
-         print("!!! AI EVALUATION SKIPPED: Gemini model not initialized. !!!")
+         print("!!! AI EVALUATION SKIPPED: Gemini model not initialized. Check logs for initialization errors. !!!")
          return None, "AI Evaluation Service Error: Model not available."
 
     # Ensure max_marks is a number for prompt generation
     try:
         max_marks_float = float(max_marks)
     except (ValueError, TypeError):
+         # ***** CLEARER MARKS ERROR *****
+         print(f"!!! Invalid max_marks value '{max_marks}' provided for evaluation.")
          return None, f"Invalid max_marks value '{max_marks}' provided for evaluation."
 
     # --- Construct the Prompt ---
@@ -231,10 +249,11 @@ def evaluate_response_with_gemini(question_text, student_answer, word_limit, max
     ]
     if word_limit:
         try:
-            if int(word_limit) > 0:
-               prompt_parts.append(f"Suggested Word Limit: Approximately {word_limit} words.")
+            wl = int(word_limit)
+            if wl > 0:
+               prompt_parts.append(f"Suggested Word Limit: Approximately {wl} words.")
         except (ValueError, TypeError):
-            print(f"Warning: Invalid word_limit '{word_limit}' ignored.")
+            print(f"Warning: Invalid word_limit '{word_limit}' ignored during prompt construction.")
 
     # Include student answer safely
     prompt_parts.append(f"Student's Answer:\n```\n{student_answer if student_answer else '(No answer provided)'}\n```") # Use code fence
@@ -244,8 +263,11 @@ def evaluate_response_with_gemini(question_text, student_answer, word_limit, max
     prompt_parts.append("- Relevance & Accuracy: How well does the answer address the question? Is it factually correct?")
     prompt_parts.append("- Completeness: Does the answer cover the key aspects required by the question?")
     prompt_parts.append("- Coherence & Clarity: Is the answer well-organized, easy to understand, with proper grammar?")
-    if word_limit and int(word_limit) > 0:
-        prompt_parts.append(f"- Word Count: Consider if the answer is reasonably close to the ~{word_limit} word limit. Significant deviations might affect clarity or completeness.")
+    try: # Add try-except for word limit check during criteria description
+        if word_limit and int(word_limit) > 0:
+            prompt_parts.append(f"- Word Count: Consider if the answer is reasonably close to the ~{int(word_limit)} word limit. Significant deviations might affect clarity or completeness.")
+    except (ValueError, TypeError):
+        pass # Ignore invalid word limit here too
 
     # Explicitly request JSON output format
     prompt_parts.append("\nOutput Format Instructions:")
@@ -283,7 +305,8 @@ def evaluate_response_with_gemini(question_text, student_answer, word_limit, max
     except ValueError as ve:
         # Error during response parsing or validation (includes safety blocks)
         error_msg = f"AI Evaluation Failed: Error processing AI response. Details: {ve}"
-        # Logging handled within parse_evaluation_response or generate_gemini_response_with_retry
+        # Logging is handled within parse_evaluation_response or generate_gemini_response_with_retry
+        print(f"!!! AI Evaluation Value Error: {ve}") # Ensure it's logged here too
         return None, error_msg # Pass the detailed error message back
     except RuntimeError as rterr:
         # Handle case where model wasn't initialized
@@ -292,8 +315,8 @@ def evaluate_response_with_gemini(question_text, student_answer, word_limit, max
          return None, error_msg
     except Exception as e:
         # Catch any other unexpected errors during the process
-        error_msg = f"AI Evaluation Failed: An unexpected error occurred. Error: {e}"
+        error_msg = f"AI Evaluation Failed: An unexpected error occurred. Error: {type(e).__name__}: {e}"
         print(f"!!! {error_msg}")
         # Optionally log full traceback for unexpected errors
-        # import traceback; traceback.print_exc()
+        import traceback; traceback.print_exc()
         return None, error_msg

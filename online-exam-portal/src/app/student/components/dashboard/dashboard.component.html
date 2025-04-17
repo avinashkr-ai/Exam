@@ -73,7 +73,7 @@
             <tbody>
               <tr *ngFor="let exam of upcomingExams">
                 <td>{{ exam.title }}</td>
-                <td>{{ exam.scheduled_time_utc | date:'medium':'UTC' }}</td>
+                <td>{{ exam.scheduled_time_utc | date:'medium' }}</td>
                 <td>60 mins</td>
                 <td>
                   <button class="btn btn-sm btn-outline-primary">
