@@ -787,3 +787,106 @@ Common HTTP status codes:
 *   **Error Responses:** `401`, `403`, `500`.
 
 ---
+
+### Database Setup Commands (Flask-Migrate)
+
+Run these commands in your terminal from the **root directory** of your Flask project (where your `wsgi.py` or main app file is located).
+
+**1. Initialize the Migrations Directory (Run ONCE per project)**
+
+*   If you are starting the project from scratch and **don't** have a `migrations` directory yet, run this command.
+*   If you cloned the repository and it *already* contains a `migrations` directory, **SKIP** this step.
+
+    ```bash
+    flask db init
+    ```
+    *   This creates the `migrations/` directory and configuration files (`alembic.ini`, `migrations/env.py`, etc.). You should commit this directory to version control.
+
+**2. Generate the Initial Migration Script**
+
+*   This command inspects your SQLAlchemy models (in `app/models.py`) and compares them to the (currently empty or non-existent) database schema state tracked by Alembic. It generates a Python script representing the changes needed to create all your tables.
+
+    ```bash
+    flask db migrate -m "Initial database schema"
+    ```
+    *   Replace `"Initial database schema"` with a short, descriptive message about the migration.
+    *   This creates a new file inside `migrations/versions/` (e.g., `migrations/versions/xxxx_initial_database_schema.py`).
+    *   **Best Practice:** Always inspect the generated migration script to ensure it looks correct before applying it.
+
+**3. Apply the Migration to the Database**
+
+*   This command executes the generated migration script(s) against the actual database specified in your `DATABASE_URL`. It runs the SQL commands to create the tables, columns, constraints, etc., defined in your models.
+
+    ```bash
+    flask db upgrade
+    ```
+    *   This applies *all* pending migrations found in the `migrations/versions/` directory that haven't been applied yet (tracked in the `alembic_version` table within your database).
+
+---
+
+**Summary for First-Time Setup:**
+
+Assuming a clean database and project structure:
+
+1.  Manually `CREATE DATABASE your_db_name;`
+2.  Configure `.env` with the correct `DATABASE_URL`.
+3.  `flask db init` (if `migrations/` doesn't exist)
+4.  `flask db migrate -m "Initial database schema"`
+5.  (Optional but recommended) Check the generated script in `migrations/versions/`.
+6.  `flask db upgrade`
+
+Your database schema should now match your SQLAlchemy models. You can then proceed to create the initial admin user (`flask create-admin`).
+
+
+---
+
+Okay, based on the code provided in your `app/__init__.py` file, the command to create the initial administrator user is:
+
+```bash
+flask create-admin
+```
+
+**Here's a breakdown of how to use it and the necessary steps:**
+
+1.  **Prerequisites:**
+    *   **Database Setup:** Make sure your database is created and the tables are up-to-date by running the migrations:
+        ```bash
+        flask db upgrade
+        ```
+    *   **Terminal Access:** Open a terminal or command prompt.
+    *   **Navigate to Project Root:** Change your directory (`cd`) to the root folder of your Flask project (where the `wsgi.py` or the main `app` directory is located).
+    *   **Activate Virtual Environment:** If you're using a virtual environment (highly recommended), activate it:
+        *   Linux/macOS: `source venv/bin/activate` (adjust `venv` if your environment has a different name)
+        *   Windows: `.\venv\Scripts\activate`
+
+2.  **Run the Command:**
+    Execute the command in your terminal:
+    ```bash
+    flask create-admin
+    ```
+
+3.  **Follow the Interactive Prompts:**
+    The script will ask you to enter the details for the new admin user:
+    ```
+    --- Create Admin User ---
+    Enter Admin Name: [Type the desired full name here and press Enter]
+    Enter Admin Email: [Type the admin's email address here and press Enter]
+    Enter Admin Password: [Type a strong password here and press Enter]
+    ```
+    *(Note: The password you type might not be visible on the screen for security reasons)*
+
+4.  **Check the Output:**
+    *   **Success:** If the user is created successfully, you'll see a confirmation message:
+        ```
+        Admin user '[Admin Name]' ([Admin Email]) created successfully.
+        ```
+    *   **Error (e.g., Email Exists):** If the email address is already registered, you'll get an error:
+        ```
+        Error: User with email '[Admin Email]' already exists (Role: Admin).
+        ```
+    *   **Error (Empty Input):** If you leave any field blank:
+        ```
+        Error: Name, email, and password cannot be empty.
+        ```
+
+This command directly adds the user to your database with the `role` set to `ADMIN` and `is_verified` set to `True`. You can then use these credentials to log in via the `POST /auth/login` API endpoint.

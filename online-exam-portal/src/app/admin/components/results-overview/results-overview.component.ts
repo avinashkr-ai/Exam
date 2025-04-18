@@ -4,12 +4,12 @@ import { ErrorHandlerService } from '../../../core/services/error-handler.servic
 import { LoadingSpinnerComponent } from '../../../shared/components/loading-spinner/loading-spinner.component';
 import { ErrorAlertComponent } from '../../../shared/components/error-alert/error-alert.component';
 import { CommonModule } from '@angular/common';
-import { RouterModule } from '@angular/router';
+import { RouterLink, RouterModule } from '@angular/router';
 
 @Component({
   selector: 'app-results-overview',
   standalone: true,
-  imports: [CommonModule, RouterModule, LoadingSpinnerComponent, ErrorAlertComponent],
+  imports: [CommonModule, RouterModule, LoadingSpinnerComponent, ErrorAlertComponent, RouterLink],
   templateUrl: './results-overview.component.html'
 })
 export class ResultsOverviewComponent implements OnInit {

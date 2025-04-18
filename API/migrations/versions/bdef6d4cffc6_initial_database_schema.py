@@ -1,8 +1,8 @@
-"""Initial database schema setup
+"""Initial database schema
 
-Revision ID: 81a19105d58b
+Revision ID: bdef6d4cffc6
 Revises: 
-Create Date: 2025-04-16 19:38:48.310684
+Create Date: 2025-04-18 18:48:17.946935
 
 """
 from alembic import op
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = '81a19105d58b'
+revision = 'bdef6d4cffc6'
 down_revision = None
 branch_labels = None
 depends_on = None
@@ -51,7 +51,7 @@ def upgrade():
     sa.Column('correct_answer', sa.String(length=255), nullable=True),
     sa.Column('marks', sa.Integer(), nullable=False),
     sa.Column('word_limit', sa.Integer(), nullable=True),
-    sa.ForeignKeyConstraint(['exam_id'], ['exams.id'], ),
+    sa.ForeignKeyConstraint(['exam_id'], ['exams.id'], ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_table('student_responses',
@@ -61,8 +61,8 @@ def upgrade():
     sa.Column('question_id', sa.Integer(), nullable=False),
     sa.Column('response_text', sa.Text(), nullable=True),
     sa.Column('submitted_at', sa.DateTime(), nullable=False),
-    sa.ForeignKeyConstraint(['exam_id'], ['exams.id'], ),
-    sa.ForeignKeyConstraint(['question_id'], ['questions.id'], ),
+    sa.ForeignKeyConstraint(['exam_id'], ['exams.id'], ondelete='CASCADE'),
+    sa.ForeignKeyConstraint(['question_id'], ['questions.id'], ondelete='CASCADE'),
     sa.ForeignKeyConstraint(['student_id'], ['users.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
@@ -73,7 +73,7 @@ def upgrade():
     sa.Column('marks_awarded', sa.Float(), nullable=False),
     sa.Column('feedback', sa.Text(), nullable=True),
     sa.Column('evaluated_at', sa.DateTime(), nullable=False),
-    sa.ForeignKeyConstraint(['response_id'], ['student_responses.id'], ),
+    sa.ForeignKeyConstraint(['response_id'], ['student_responses.id'], ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('id'),
     sa.UniqueConstraint('response_id')
     )

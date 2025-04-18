@@ -1,5 +1,5 @@
 import { Component, OnInit } from '@angular/core';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { ApiService } from '../../../core/services/api.service';
 import { ErrorHandlerService } from '../../../core/services/error-handler.service';
 import { LoadingSpinnerComponent } from '../../../shared/components/loading-spinner/loading-spinner.component';
@@ -24,7 +24,7 @@ interface EvaluationResult {
 @Component({
   selector: 'app-evaluate-response',
   standalone: true,
-  imports: [CommonModule, FormsModule, LoadingSpinnerComponent, ErrorAlertComponent],
+  imports: [CommonModule, FormsModule, LoadingSpinnerComponent, ErrorAlertComponent, RouterLink],
   templateUrl: './evaluate-response.component.html'
 })
 export class EvaluateResponseComponent implements OnInit {

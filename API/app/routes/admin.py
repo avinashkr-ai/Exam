@@ -288,8 +288,6 @@ def get_all_results():
         print(f"!!! Error fetching all results: {e}")
         return jsonify({"msg": "Error fetching results list."}), 500
 
-
-# Endpoint: GET /admin/evaluate/response/all 
 @bp.route('/response/all', methods=['GET'])
 @jwt_required()
 @admin_required
@@ -398,8 +396,6 @@ def get_all_student_responses():
         print(f"!!! Error fetching all student responses for admin {admin_id}: {e}")
         # import traceback; traceback.print_exc() # Uncomment for detailed debugging
         return jsonify({"msg": "An error occurred while fetching student responses."}), 500
-
-
 
 @bp.route('/evaluate/response/<int:response_id>', methods=['POST'])
 @jwt_required()

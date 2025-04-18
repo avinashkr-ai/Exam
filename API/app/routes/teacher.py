@@ -266,21 +266,19 @@ def delete_exam(exam_id):
     if not exam:
         return jsonify({"msg": "Exam not found or access denied"}), 404
 
-    # Note: Cascading delete for Questions and StudentResponses should be handled
-    # by the 'cascade="all, delete-orphan"' option on the relationships in models.py.
-    # If evaluations have FK constraints, deleting responses might fail if evaluations exist.
-    # Consider adding cascade delete to Evaluation relationship or deleting evaluations manually first.
     try:
-        exam_title = exam.title # Get title for logging before delete
+        exam_title = exam.title
+        # Simply deleting the exam object from the session
         db.session.delete(exam)
+        # On commit, the database will handle cascading deletes due to ON DELETE CASCADE constraints
         db.session.commit()
-        print(f"--- Exam '{exam_title}' (ID: {exam_id}) deleted successfully by teacher {teacher_id} ---")
+        print(f"--- Exam '{exam_title}' (ID: {exam_id}) and related data deleted successfully by teacher {teacher_id} ---")
         return jsonify({"msg": f"Exam '{exam_title}' deleted successfully"}), 200
     except Exception as e:
         db.session.rollback()
         print(f"!!! Error deleting exam {exam_id} by teacher {teacher_id}: {e}")
-        # Check for potential IntegrityErrors if cascade isn't fully set up
-        return jsonify({"msg": "Exam deletion failed. Check for related records or server errors."}), 500
+        # If cascade fails at DB level, it might raise an IntegrityError caught here
+        return jsonify({"msg": "Exam deletion failed. Check server logs."}), 500
 
 # --- Question Management ---
 

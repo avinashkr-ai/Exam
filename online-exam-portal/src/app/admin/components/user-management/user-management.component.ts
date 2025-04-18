@@ -5,11 +5,12 @@ import { LoadingSpinnerComponent } from '../../../shared/components/loading-spin
 import { ErrorAlertComponent } from '../../../shared/components/error-alert/error-alert.component';
 import { CommonModule } from '@angular/common';
 import { User } from '../../../core/models/user';
+import { RouterLink } from '@angular/router';
 
 @Component({
   selector: 'app-user-management',
   standalone: true,
-  imports: [CommonModule, LoadingSpinnerComponent, ErrorAlertComponent],
+  imports: [CommonModule, LoadingSpinnerComponent, ErrorAlertComponent, RouterLink],
   templateUrl: './user-management.component.html'
 })
 export class UserManagementComponent implements OnInit {

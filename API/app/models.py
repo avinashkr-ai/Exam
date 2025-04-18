@@ -2,12 +2,8 @@
 
 from app.extensions import db
 from werkzeug.security import generate_password_hash, check_password_hash
-# Import Python's standard datetime
-from datetime import datetime, timezone # Import timezone for potential parsing needs later
+from datetime import datetime, timezone
 import enum
-# Removed pendulum import as it's no longer used here
-
-# No specific timezone definitions needed here anymore if using naive UTC
 
 class UserRole(enum.Enum):
     ADMIN = 'Admin'
@@ -22,10 +18,9 @@ class User(db.Model):
     password_hash = db.Column(db.String(256))
     role = db.Column(db.Enum(UserRole), nullable=False, default=UserRole.STUDENT)
     is_verified = db.Column(db.Boolean, default=False, nullable=False)
-    # Use standard datetime.utcnow for a naive UTC default
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False) # Changed default
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
 
-    # Relationships (no changes needed here)
+    # Relationships - No cascade needed *from* User deletion typically
     created_exams = db.relationship('Exam', backref='creator', lazy='dynamic', foreign_keys='Exam.created_by')
     responses = db.relationship('StudentResponse', backref='student', lazy='dynamic')
 
@@ -43,14 +38,19 @@ class Exam(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String(150), nullable=False)
     description = db.Column(db.Text, nullable=True)
-    # Stores naive datetime, expected to represent UTC. Frontend MUST send UTC.
     scheduled_time = db.Column(db.DateTime, nullable=False)
-    duration = db.Column(db.Integer, nullable=False)  # Duration in minutes
+    duration = db.Column(db.Integer, nullable=False)
+    # Define the ForeignKey to User here
     created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    # Use standard datetime.utcnow for a naive UTC default
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False) # Changed default
-    questions = db.relationship('Question', backref='exam', lazy='dynamic', cascade="all, delete-orphan")
-    responses = db.relationship('StudentResponse', backref='exam', lazy='dynamic')
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+    # ORM Relationships: Define cascades primarily for session management if needed,
+    # but DB cascades will handle the deletion persistence.
+    # Keeping 'delete-orphan' is good practice for managing children via the session.
+    questions = db.relationship('Question', backref='exam', lazy='dynamic',
+                                cascade="all, delete-orphan")
+    responses = db.relationship('StudentResponse', backref='exam', lazy='dynamic',
+                                cascade="all, delete-orphan") # Add cascade here too for completeness
 
     def __repr__(self):
         return f'<Exam {self.title}>'
@@ -63,14 +63,18 @@ class QuestionType(enum.Enum):
 class Question(db.Model):
     __tablename__ = 'questions'
     id = db.Column(db.Integer, primary_key=True)
-    exam_id = db.Column(db.Integer, db.ForeignKey('exams.id'), nullable=False)
+    # *** ADD ON DELETE CASCADE ***
+    exam_id = db.Column(db.Integer, db.ForeignKey('exams.id', ondelete='CASCADE'), nullable=False)
     question_text = db.Column(db.Text, nullable=False)
     question_type = db.Column(db.Enum(QuestionType), nullable=False)
-    options = db.Column(db.JSON, nullable=True) # For MCQ: {"option_key": "option_text", ...}
-    correct_answer = db.Column(db.String(255), nullable=True) # For MCQ: Stores the option_key
+    options = db.Column(db.JSON, nullable=True)
+    correct_answer = db.Column(db.String(255), nullable=True)
     marks = db.Column(db.Integer, nullable=False)
-    word_limit = db.Column(db.Integer, nullable=True) # For Short/Long Answer
-    responses = db.relationship('StudentResponse', backref='question', lazy='dynamic')
+    word_limit = db.Column(db.Integer, nullable=True)
+
+    # Cascade needed here too for deleting Responses when a Question is deleted
+    responses = db.relationship('StudentResponse', backref='question', lazy='dynamic',
+                                cascade="all, delete-orphan")
 
     def __repr__(self):
         return f'<Question {self.id} for Exam {self.exam_id}>'
@@ -78,14 +82,17 @@ class Question(db.Model):
 class StudentResponse(db.Model):
     __tablename__ = 'student_responses'
     id = db.Column(db.Integer, primary_key=True)
+    # Keep User FK without cascade (usually don't delete User data on Response delete)
     student_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    exam_id = db.Column(db.Integer, db.ForeignKey('exams.id'), nullable=False)
-    question_id = db.Column(db.Integer, db.ForeignKey('questions.id'), nullable=False)
+    # *** ADD ON DELETE CASCADE *** (If Exam deleted, delete response)
+    exam_id = db.Column(db.Integer, db.ForeignKey('exams.id', ondelete='CASCADE'), nullable=False)
+    # *** ADD ON DELETE CASCADE *** (If Question deleted, delete response)
+    question_id = db.Column(db.Integer, db.ForeignKey('questions.id', ondelete='CASCADE'), nullable=False)
     response_text = db.Column(db.Text, nullable=True)
-    # Use standard datetime.utcnow for a naive UTC default
-    submitted_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False) # Changed default
+    submitted_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
 
-    # The 'evaluation' attribute is added via backref from Evaluation model
+    # The 'evaluation' attribute is added via backref from Evaluation model.
+    # Cascade for this one-to-one is best handled on the Evaluation FK below.
 
     def __repr__(self):
          return f'<StudentResponse {self.id} by Student {self.student_id} for Exam {self.exam_id}>'
@@ -93,16 +100,18 @@ class StudentResponse(db.Model):
 class Evaluation(db.Model):
     __tablename__ = 'evaluations'
     id = db.Column(db.Integer, primary_key=True)
-    response_id = db.Column(db.Integer, db.ForeignKey('student_responses.id'), unique=True, nullable=False)
-    evaluated_by = db.Column(db.String(50), nullable=False) # Could be "AI_Gemini (Trigger: UserID)" or "Manual (UserID)"
+    # *** ADD ON DELETE CASCADE *** (If StudentResponse deleted, delete evaluation)
+    response_id = db.Column(db.Integer, db.ForeignKey('student_responses.id', ondelete='CASCADE'), unique=True, nullable=False)
+    evaluated_by = db.Column(db.String(50), nullable=False)
     marks_awarded = db.Column(db.Float, nullable=False)
     feedback = db.Column(db.Text, nullable=True)
-    # Use standard datetime.utcnow for a naive UTC default
-    evaluated_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False) # Changed default
+    evaluated_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
 
-    # Defines the relationship to the StudentResponse this evaluation belongs to.
-    # backref creates 'evaluation' attribute on StudentResponse (one-to-one).
-    response = db.relationship('StudentResponse', backref=db.backref('evaluation', uselist=False))
+    # Relationship remains largely the same, backref creates 'evaluation' attribute.
+    # ORM cascade 'delete-orphan' on the *owning* side (response) can be useful
+    # if you ever remove an evaluation from a response object in the session.
+    response = db.relationship('StudentResponse', backref=db.backref('evaluation', uselist=False,
+                                                                     cascade="all, delete-orphan"))
 
     def __repr__(self):
         return f'<Evaluation for Response {self.response_id}>'
