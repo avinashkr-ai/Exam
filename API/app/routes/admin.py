@@ -288,6 +288,119 @@ def get_all_results():
         print(f"!!! Error fetching all results: {e}")
         return jsonify({"msg": "Error fetching results list."}), 500
 
+
+# Endpoint: GET /admin/evaluate/response/all 
+@bp.route('/response/all', methods=['GET'])
+@jwt_required()
+@admin_required
+@verified_required
+def get_all_student_responses():
+    """
+    Retrieves all submitted student responses across all exams, paginated.
+    Includes both evaluated and pending responses.
+    """
+    print(f"\n*** Get All Student Responses Endpoint Reached ***")
+    admin_id = get_current_user_id() # For logging context
+
+    try:
+        # Pagination parameters from query string
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 20, type=int)
+
+        # Base query starting from StudentResponse
+        # Use options for eager loading to avoid N+1 query issues
+        responses_query = StudentResponse.query.options(
+            joinedload(StudentResponse.student),     # Load related User (student)
+            joinedload(StudentResponse.exam),        # Load related Exam
+            joinedload(StudentResponse.question),    # Load related Question
+            joinedload(StudentResponse.evaluation)   # Load related Evaluation (will be None if no eval exists)
+        ).join(
+            User, StudentResponse.student_id == User.id # Explicit join often helps with filtering/ordering
+        ).join(
+            Exam, StudentResponse.exam_id == Exam.id
+        ).join(
+            Question, StudentResponse.question_id == Question.id
+        ).order_by(
+            StudentResponse.submitted_at.desc() # Order by most recent submission first
+        )
+
+        # Paginate the query results
+        paginated_responses = responses_query.paginate(page=page, per_page=per_page, error_out=False)
+        responses = paginated_responses.items
+
+        # Format data for JSON response
+        responses_data = []
+        for resp in responses:
+            # Access related objects loaded via joinedload
+            student = resp.student
+            exam = resp.exam
+            question = resp.question
+            evaluation = resp.evaluation # Access the optional evaluation
+
+            # Basic check for data integrity (should be rare with joins/loads)
+            if not all([student, exam, question]):
+                print(f"!!! Warning: Skipping response ID {resp.id} due to missing related data (student/exam/question).")
+                continue
+
+            # Determine evaluation status and details
+            eval_status = "Evaluated" if evaluation else "Pending Evaluation"
+            eval_details = {}
+            if evaluation:
+                eval_details = {
+                    "evaluation_id": evaluation.id,
+                    "marks_awarded": evaluation.marks_awarded,
+                    "feedback": evaluation.feedback,
+                    "evaluated_by": evaluation.evaluated_by,
+                    "evaluated_at_utc": format_datetime(evaluation.evaluated_at)
+                }
+            else:
+                # Provide nulls for evaluation fields if not evaluated
+                 eval_details = {
+                    "evaluation_id": None,
+                    "marks_awarded": None,
+                    "feedback": None,
+                    "evaluated_by": None,
+                    "evaluated_at_utc": None
+                 }
+
+            # Truncate potentially long text fields for summary view
+            q_text_short = question.question_text[:100] + ("..." if len(question.question_text or "") > 100 else "")
+            resp_text_short = resp.response_text[:150] + ("..." if len(resp.response_text or "") > 150 else "")
+
+            responses_data.append({
+                "response_id": resp.id,
+                "student_name": student.name,
+                "student_email": student.email,
+                "exam_id": exam.id,
+                "exam_title": exam.title,
+                "question_id": question.id,
+                "question_text": q_text_short,
+                "question_type": question.question_type.name, # Use .name for enum string value
+                "response_text": resp_text_short,
+                "submitted_at_utc": format_datetime(resp.submitted_at),
+                "marks_possible": question.marks,
+                "evaluation_status": eval_status,
+                **eval_details # Unpack evaluation details (will contain nulls if pending)
+            })
+
+        print(f"--- Admin {admin_id} retrieved page {page} of all responses ({len(responses_data)} items) ---")
+
+        # Return the paginated results structure
+        return jsonify({
+            "responses": responses_data,
+            "total_responses": paginated_responses.total, # Total count matching query
+            "total_pages": paginated_responses.pages,     # Total pages available
+            "current_page": page,
+            "per_page": per_page
+        }), 200
+
+    except Exception as e:
+        print(f"!!! Error fetching all student responses for admin {admin_id}: {e}")
+        # import traceback; traceback.print_exc() # Uncomment for detailed debugging
+        return jsonify({"msg": "An error occurred while fetching student responses."}), 500
+
+
+
 @bp.route('/evaluate/response/<int:response_id>', methods=['POST'])
 @jwt_required()
 @admin_required

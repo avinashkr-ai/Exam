@@ -27,12 +27,13 @@ export const routes: Routes = [
   { path: 'auth/register', component: RegisterComponent },
   {
     path: 'admin',
-    // canActivate: [AuthGuard],
+    canActivate: [AuthGuard],
     data: { role: 'Admin' },
     children: [
       { path: '', component: AdminDashboard },
       { path: 'user-management', component: UserManagementComponent },
       { path: 'results-overview', component: ResultsOverviewComponent },
+      { path: 'evaluate-response/', component: EvaluateResponseComponent },
       { path: 'evaluate-response/:id', component: EvaluateResponseComponent }
     ]
   },
@@ -44,12 +45,13 @@ export const routes: Routes = [
       { path: '', component: TeacherDashboard },
       { path: 'exam-management', component: ExamManagementComponent },
       { path: 'question-management/:id', component: QuestionManagementComponent },
-      { path: 'exam-results/:id', component: ExamResultsComponent }
+      { path: 'exam-results/', component: ExamResultsComponent },
+      // { path: 'exam-results/:id', component: ExamResultsComponent }
     ]
   },
   {
     path: 'student',
-    // canActivate: [AuthGuard],
+    canActivate: [AuthGuard],
     data: { role: 'Student' },
     children: [
       { path: '', component: StudentDashboard },

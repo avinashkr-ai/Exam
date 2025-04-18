@@ -1,46 +1,162 @@
 <div class="container mt-4">
-  <!-- Navigation Bar -->
-   <style>
-    .nav-link.active {
-  font-weight: bold;
-}
-.card-header {
-  font-size: 1.25rem;
-}
-.alert {
-  margin-bottom: 1rem;
-}
-   </style>
-  <nav class="nav nav-pills mb-4">
-    <a class="nav-link" routerLink="/student" routerLinkActive="active">Dashboard</a>
-    <a class="nav-link" routerLink="/student/exams" routerLinkActive="active">Available Exams</a>
-    <a class="nav-link" routerLink="/student/results" routerLinkActive="active">Results</a>
-  </nav>
+  <style>
+    .nav-link.active { font-weight: bold; }
+    .timer {
+      font-size: 1.2rem;
+      font-weight: bold;
+      color: #fff;
+    }
+    .question-container {
+      background-color: #f8f9fa;
+      padding: 1.5rem;
+      border-radius: 0.5rem;
+      margin-bottom: 1rem;
+    }
+    .progress { height: 1.5rem; }
+    .answer-textarea {
+      min-height: 150px;
+      resize: vertical;
+    }
+    .word-count {
+      font-size: 0.875rem;
+      color: #6c757d;
+    }
+  </style>
 
-  <h2>Take Exam</h2>
-  <div *ngIf="error" class="alert alert-danger" role="alert">
-    {{ error }}
-  </div>
-
-  <div *ngIf="exam; else loading" class="card">
-    <div class="card-header bg-primary text-white">
-      {{ exam.exam_title }}
-    </div>
-    <div class="card-body">
-      <p><strong>Time Remaining:</strong> {{ exam.time_remaining_seconds }} seconds</p>
-      <h5>Questions</h5>
-      <div *ngFor="let question of exam.questions" class="mb-3">
-        <p><strong>{{ question.question_text }}</strong> ({{ question.marks }} marks)</p>
-        <p>Type: {{ question.question_type }}</p>
-        <p *ngIf="question.options">Options: {{ question.options | json }}</p>
-        <p *ngIf="question.word_limit">Word Limit: {{ question.word_limit }}</p>
+    <!-- Quick Actions -->
+    <div class="row mb-4">
+      <div class="col-12">
+        <div class="card shadow-sm">
+          <div class="card-header bg-white py-3">
+            <h5 class="mb-0"><i class="bi bi-lightning-charge me-2"></i>Quick Actions</h5>
+          </div>
+          <div class="card-body">
+            <div class="row g-3">
+              <div class="col-md-3">
+                <a routerLink="/student" class="btn btn-success w-100 d-flex align-items-center justify-content-center">
+                  <i class="bi bi-question-circle me-2"></i>Dashboard
+                </a>
+              </div>
+              <!-- <div class="col-md-3">
+                <a routerLink="/teacher/exam-management" class="btn btn-secondary w-100 d-flex align-items-center justify-content-center">
+                  <i class="bi bi-gear me-2"></i>Manage Exams
+                </a>
+              </div> -->
+              <div class="col-md-3">
+                <a routerLink="/student/exam-results" class="btn btn-info w-100 d-flex align-items-center justify-content-center">
+                  <i class="bi bi-graph-up me-2"></i>View Results
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
-      <p class="text-muted">Note: Exam submission UI to be implemented.</p>
+    </div>
+
+<!-- Error Alert -->
+<div *ngIf="error" class="alert alert-danger" role="alert">
+  {{ error }}
+</div>
+
+  <!-- Main Exam Content -->
+  <div *ngIf="!loading && !error && exam" class="card">
+    <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+      <h4 class="mb-0">{{ exam.exam_title }}</h4>
+      <div class="timer">
+        <i class="bi bi-clock me-2"></i>
+        {{ formattedTimeLeft }}
+      </div>
+    </div>
+
+    <div class="card-body">
+      <!-- Progress Indicator -->
+      <div class="progress mb-4">
+        <div class="progress-bar" role="progressbar" 
+             [style.width.%]="progress"
+             [attr.aria-valuenow]="progress" 
+             aria-valuemin="0" 
+             aria-valuemax="100">
+          Question {{ currentQuestionIndex + 1 }} of {{ exam.questions.length }}
+        </div>
+      </div>
+
+      <!-- Current Question Display -->
+      <div class="question-container">
+        <div *ngIf="currentQuestion">
+          <h5 class="mb-3">{{ currentQuestion.question_text }}</h5>
+          
+          <div class="mb-3">
+            <span class="badge bg-info me-2">Marks: {{ currentQuestion.marks }}</span>
+            <span class="badge bg-secondary me-2">Type: {{ currentQuestion.question_type }}</span>
+            <span *ngIf="currentQuestion.word_limit" class="badge bg-warning">
+              Word Limit: {{ currentQuestion.word_limit }}
+            </span>
+          </div>
+
+          <!-- Answer Section -->
+          <div class="form-group">
+            <!-- Text Answer -->
+            <textarea *ngIf="currentQuestion.question_type === 'Long Answer' || currentQuestion.question_type === 'Short Answer'"
+                    class="form-control answer-textarea"
+                    [value]="answers[currentQuestion.id]"
+                    (input)="onAnswerChange($event)"
+                    [attr.maxlength]="currentQuestion.word_limit"
+                    placeholder="Type your answer here..."></textarea>
+            
+            <!-- Word Count for Text Answers -->
+            <div *ngIf="(currentQuestion.question_type === 'Long Answer' || currentQuestion.question_type === 'Short Answer') && currentQuestion.word_limit" 
+                 class="word-count mt-2">
+              Words: {{ getWordCount(answers[currentQuestion.id]) }} / {{ currentQuestion.word_limit }}
+            </div>
+
+            <!-- MCQ Options -->
+            <div *ngIf="currentQuestion.question_type === 'MCQ'" class="list-group">
+              <button *ngFor="let option of currentQuestion.options | keyvalue"
+                      class="list-group-item list-group-item-action"
+                      [class.active]="answers[currentQuestion.id] === option.value"
+                      (click)="onAnswerChange(option.value)">
+                {{ option.value }}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Navigation Controls -->
+      <div class="d-flex justify-content-between align-items-center mt-4">
+        <button class="btn btn-secondary"
+                (click)="previousQuestion()"
+                [disabled]="currentQuestionIndex === 0">
+          <i class="bi bi-arrow-left"></i> Previous
+        </button>
+
+        <div class="d-flex gap-2">
+          <button class="btn btn-outline-primary"
+                  (click)="saveProgress()">
+            <i class="bi bi-save"></i> Save Progress
+          </button>
+
+          <button *ngIf="currentQuestionIndex < exam.questions.length - 1"
+                  class="btn btn-primary"
+                  (click)="nextQuestion()">
+            Next <i class="bi bi-arrow-right"></i>
+          </button>
+
+          <button *ngIf="currentQuestionIndex === exam.questions.length - 1"
+                  class="btn btn-success"
+                  (click)="confirmSubmit()"
+                  [disabled]="submitting">
+            <i class="bi bi-check-circle"></i> Submit Exam
+          </button>
+        </div>
+      </div>
     </div>
   </div>
-  <ng-template #loading>
-    <div class="alert alert-info">
-      Loading exam...
-    </div>
-  </ng-template>
+
+<!-- Loading Spinner -->
+<div *ngIf="loading && !error" class="d-flex justify-content-center p-5">
+  <div class="spinner-border text-primary" role="status">
+    <span class="visually-hidden">Loading exam...</span>
+  </div>
+</div>
 </div>

@@ -72,9 +72,10 @@ export class ExamManagementComponent implements OnInit {
       return;
     }
     this.apiService.updateExam(this.editExam.id, {
+      //  add 5 hours 30 minutes to the scheduled time
+      scheduled_time_utc: new Date(new Date(scheduled_time_utc).getTime() + 5 * 60 * 60 * 1000 + 30 * 60 * 1000).toISOString(),
       title,
       description: this.editExam.description,
-      scheduled_time_utc: new Date(scheduled_time_utc).toISOString(),
       duration_minutes
     }).subscribe({
       next: () => {
@@ -101,6 +102,19 @@ export class ExamManagementComponent implements OnInit {
           console.error('Error deleting exam:', err);
         }
       });
+    }
+  }
+
+  examStatus(exam: Exam): string {
+    const now = new Date();
+    const examTime = new Date(exam.scheduled_time_utc);
+    const examEndTime = new Date(examTime.getTime() + (exam.duration_minutes || 0) * 60000);
+    if (now < examTime) {
+      return 'Upcoming';
+    } else if (now >= examTime && now <= examEndTime) {
+      return 'Active';
+    } else {
+      return 'Expired';
     }
   }
 

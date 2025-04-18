@@ -1,5 +1,42 @@
 <div class="container mt-4">
 
+
+        <!-- Quick Actions -->
+        <div class="row mb-4">
+          <div class="col-12">
+            <div class="card shadow-sm">
+              <div class="card-header bg-white py-3">
+                <h5 class="mb-0"><i class="bi bi-lightning-charge me-2"></i>Quick Actions</h5>
+              </div>
+              <div class="card-body">
+                <div class="row g-3">
+                  <div class="col-md-3">
+                    <a routerLink="/teacher" class="btn btn-success w-100 d-flex align-items-center justify-content-center">
+                      <i class="bi bi-question-circle me-2"></i>Dashboard
+                    </a>
+                  </div>
+                  <!-- <div class="col-md-3">
+                    <a routerLink="/teacher/exam-management/create" class="btn btn-primary w-100 d-flex align-items-center justify-content-center">
+                      <i class="bi bi-plus-circle me-2"></i>Create New Exam
+                    </a>
+                  </div> -->
+                  <div class="col-md-3">
+                    <a routerLink="/teacher/exam-management" class="btn btn-secondary w-100 d-flex align-items-center justify-content-center">
+                      <i class="bi bi-gear me-2"></i>Manage Exams
+                    </a>
+                  </div>
+                  <div class="col-md-3">
+                    <a routerLink="/teacher/exam-results" class="btn btn-info w-100 d-flex align-items-center justify-content-center">
+                      <i class="bi bi-graph-up me-2"></i>View Results
+                    </a>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+    
+    
   
   <h3>Questions</h3>
   <div *ngIf="questions.length; else noQuestions">

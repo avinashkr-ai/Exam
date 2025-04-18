@@ -45,6 +45,7 @@ def dashboard():
         upcoming_data = [{
             "id": e.id,
             "title": e.title,
+            "duration_minutes": e.duration,
             # Format naive UTC time using helper
             "scheduled_time_utc": format_datetime(e.scheduled_time)
         } for e in upcoming_exams]

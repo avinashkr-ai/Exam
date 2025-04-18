@@ -1,14 +1,153 @@
-<div class="container mt-4">
-    <h2>Evaluate Response</h2>
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="row mb-4">
+      <div class="col">
+        <h2 class="mb-0">
+          <i class="bi bi-check-square me-2"></i>Response Evaluation
+        </h2>
+        <p class="text-muted">Review and evaluate student responses</p>
+      </div>
+    </div>
+  
+    <!-- Loading and Error States -->
     <app-loading-spinner *ngIf="loading"></app-loading-spinner>
     <app-error-alert *ngIf="error" [message]="error"></app-error-alert>
-    <div *ngIf="!loading && !error && response">
-      <div class="card">
-        <div class="card-body">
-          <h5>Question: {{ response.question_text }}</h5>
-          <p>Student: {{ response.student_name }}</p>
-          <p>Response: {{ response.response_text }}</p>
-          <button class="btn btn-primary" (click)="evaluate()">Trigger AI Evaluation</button>
+  
+    <!-- Main Content -->
+    <div class="row" *ngIf="!loading && !error">
+      <!-- Results Table -->
+      <div class="col" [class.col-md-8]="selectedResponse">
+        <div class="card shadow-sm">
+          <div class="card-header bg-white py-3">
+            <div class="d-flex justify-content-between align-items-center">
+              <h5 class="mb-0">Student Responses</h5>
+              <span class="badge bg-primary">{{ totalResults }} Total</span>
+            </div>
+          </div>
+          <div class="table-responsive">
+            <table class="table table-hover mb-0">
+              <thead>
+                <tr>
+                  <th>Student</th>
+                  <th>Exam</th>
+                  <th>Status</th>
+                  <th>Marks</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let result of results">
+                  <td>
+                    <div>{{ result.student_name }}</div>
+                    <small class="text-muted">{{ result.student_email }}</small>
+                  </td>
+                  <td>{{ result.exam_title }}</td>
+                  <td>
+                    <span class="badge" [class.bg-success]="result.evaluated_by" [class.bg-warning]="!result.evaluated_by">
+                      {{ result.evaluated_by ? 'Evaluated' : 'Pending' }}
+                    </span>
+                  </td>
+                  <td>
+                    {{ result.marks_awarded || '-' }}/{{ result.marks_possible }}
+                  </td>
+                  <td>
+                    <button class="btn btn-sm btn-primary me-2" (click)="loadResponse(result.evaluation_id)">
+                      <i class="bi bi-eye me-1"></i>View
+                    </button>
+                    <button *ngIf="!result.evaluated_by" class="btn btn-sm btn-success" (click)="triggerAIEvaluation(result.evaluation_id)">
+                      <i class="bi bi-robot me-1"></i>AI Evaluate
+                    </button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <!-- Pagination -->
+          <div class="card-footer bg-white py-3" *ngIf="totalPages > 1">
+            <nav>
+              <ul class="pagination justify-content-center mb-0">
+                <li class="page-item" [class.disabled]="currentPage === 1">
+                  <button class="page-link" (click)="changePage(currentPage - 1)">Previous</button>
+                </li>
+                <li class="page-item" *ngFor="let page of [].constructor(totalPages); let i = index"
+                    [class.active]="currentPage === i + 1">
+                  <button class="page-link" (click)="changePage(i + 1)">{{ i + 1 }}</button>
+                </li>
+                <li class="page-item" [class.disabled]="currentPage === totalPages">
+                  <button class="page-link" (click)="changePage(currentPage + 1)">Next</button>
+                </li>
+              </ul>
+            </nav>
+          </div>
+        </div>
+      </div>
+  
+      <!-- Evaluation Form -->
+      <div class="col-md-4" *ngIf="selectedResponse">
+        <div class="card shadow-sm">
+          <div class="card-header bg-white py-3">
+            <div class="d-flex justify-content-between align-items-center">
+              <h5 class="mb-0">Evaluate Response</h5>
+              <button class="btn btn-sm btn-outline-secondary" (click)="closeEvaluation()">
+                <i class="bi bi-x-lg"></i>
+              </button>
+            </div>
+          </div>
+          <div class="card-body">
+            <!-- Student Info -->
+            <div class="mb-4">
+              <h6>Student Information</h6>
+              <p class="mb-1">{{ selectedResponse.student_name }}</p>
+              <small class="text-muted">{{ selectedResponse.student_email }}</small>
+            </div>
+  
+            <!-- Question -->
+            <div class="mb-4">
+              <h6>Question</h6>
+              <p class="mb-1">{{ selectedResponse.question_text }}</p>
+              <small class="text-muted">Type: {{ selectedResponse.question_type }}</small>
+            </div>
+  
+            <!-- Response -->
+            <div class="mb-4">
+              <h6>Student's Response</h6>
+              <p class="border rounded p-3 bg-light">{{ selectedResponse.response_text }}</p>
+              <small class="text-muted" *ngIf="selectedResponse.word_limit">
+                Word Limit: {{ selectedResponse.word_limit }}
+              </small>
+            </div>
+  
+            <!-- AI Evaluation -->
+            <div class="mb-4" *ngIf="selectedResponse.ai_evaluation">
+              <h6>AI Evaluation</h6>
+              <div class="border rounded p-3 bg-light">
+                <p class="mb-1">{{ selectedResponse.ai_evaluation }}</p>
+                <div class="text-muted">Suggested Marks: {{ selectedResponse.marks || 0 }}</div>
+              </div>
+            </div>
+  
+            <!-- Manual Evaluation Form -->
+            <form (ngSubmit)="submitEvaluation()">
+              <div class="mb-3">
+                <label for="manualMarks" class="form-label">Marks</label>
+                <input type="number" class="form-control" id="manualMarks"
+                       [(ngModel)]="manualMarks" name="manualMarks"
+                       [min]="0" [max]="selectedResponse.marks_possible" required>
+              </div>
+              <div class="mb-3">
+                <label for="manualEvaluation" class="form-label">Feedback</label>
+                <textarea class="form-control" id="manualEvaluation"
+                          [(ngModel)]="manualEvaluation" name="manualEvaluation"
+                          rows="3"></textarea>
+              </div>
+              <div class="d-grid">
+                <button type="submit" class="btn btn-primary"
+                        [disabled]="isSubmitting || !manualMarks">
+                  <i class="bi bi-check2-circle me-2"></i>Submit Evaluation
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       </div>
     </div>

@@ -15,25 +15,96 @@ export class ApiService {
 
   constructor(private http: HttpClient) {}
 
-  // Admin APIs (unchanged)
-  getAdminDashboard(): Observable<any> {
-    return this.http.get(`${this.baseUrl}/admin/dashboard`);
+  getAdminDashboard(): Observable<{
+    active_teachers: number;
+    active_students: number;
+    pending_verifications: number;
+    total_exams: number;
+    total_responses_submitted: number;
+    responses_evaluated: number;
+    responses_pending_evaluation: number;
+  }> {
+    return this.http.get<any>(`${this.baseUrl}/admin/dashboard`);
   }
+
+  // User Management APIs
   getPendingUsers(): Observable<User[]> {
     return this.http.get<User[]>(`${this.baseUrl}/admin/users/pending`);
   }
+
+  getAllTeachers(): Observable<User[]> {
+    return this.http.get<User[]>(`${this.baseUrl}/admin/teachers`);
+  }
+
+  getAllStudents(): Observable<User[]> {
+    return this.http.get<User[]>(`${this.baseUrl}/admin/students`);
+  }
+
   verifyUser(userId: number): Observable<any> {
     return this.http.post(`${this.baseUrl}/admin/users/verify/${userId}`, {});
   }
+
   deleteUser(userId: number): Observable<any> {
     return this.http.delete(`${this.baseUrl}/admin/users/${userId}`);
   }
-  getAllResults(): Observable<any> {
-    return this.http.get(`${this.baseUrl}/admin/results/all`);
+
+  // Response Evaluation APIs
+  getAllResults(page: number = 1, perPage: number = 20): Observable<{
+    results: Array<{
+      evaluation_id: number;
+      student_name: string;
+      student_email: string;
+      exam_title: string;
+      question_text: string;
+      student_response: string;
+      marks_awarded: number;
+      marks_possible: number;
+      feedback: string;
+      evaluated_by: string;
+      evaluated_at_utc: string;
+    }>;
+    total_results: number;
+    total_pages: number;
+    current_page: number;
+    per_page: number;
+  }> {
+    return this.http.get<any>(`${this.baseUrl}/admin/results/all?page=${page}&per_page=${perPage}`);
   }
-  evaluateResponse(responseId: number): Observable<any> {
-    return this.http.post(`${this.baseUrl}/admin/evaluate/response/${responseId}`, {});
+
+  getResponseById(responseId: number): Observable<{
+    response_id: number;
+    question_text: string;
+    student_name: string;
+    response_text: string;
+    question_type: string;
+    word_limit?: number;
+    marks?: number;
+    evaluated_by?: string;
+    evaluation_date?: string;
+    ai_evaluation?: string;
+    manual_evaluation?: string;
+    final_marks?: number;
+  }> {
+    return this.http.get<any>(`${this.baseUrl}/admin/responses/${responseId}`);
   }
+
+  evaluateResponse(responseId: number): Observable<{
+    msg: string;
+    evaluation_id: number;
+    marks_awarded: number;
+    feedback: string;
+  }> {
+    return this.http.post<any>(`${this.baseUrl}/admin/evaluate/response/${responseId}`, {});
+  }
+  
+  submitEvaluation(data: { 
+    response_id: number; 
+    marks: number; 
+    evaluation: string 
+  }): Observable<any> {
+    return this.http.post(`${this.baseUrl}/admin/evaluate/submit`, data);
+  }
+
 
   // Teacher APIs (unchanged)
   getTeacherExams(): Observable<Exam[]> {

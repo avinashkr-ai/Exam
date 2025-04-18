@@ -1,114 +1,90 @@
-<div class="container mt-4">
-  <!-- Navigation Bar -->
-  <nav class="nav nav-pills nav-fill mb-4 bg-white p-2 rounded shadow-sm">
-    <a class="nav-link active d-flex align-items-center justify-content-center" routerLink="/admin" routerLinkActive="active">
-      <i class="bi bi-house-door me-2"></i>Dashboard
-    </a>
-    <a class="nav-link d-flex align-items-center justify-content-center" routerLink="/admin/user-management" routerLinkActive="active">
-      <i class="bi bi-people me-2"></i>User Management
-    </a>
-    <a class="nav-link d-flex align-items-center justify-content-center" routerLink="/admin/results-overview" routerLinkActive="active">
-      <i class="bi bi-graph-up me-2"></i>Results Overview
-    </a>
-  </nav>
-
+<div class="container-fluid py-4">
+  <!-- Header -->
   <div class="row mb-4">
-    <div class="col-12">
-      <h2 class="mb-4"><i class="bi bi-shield-lock me-2"></i>Admin Dashboard</h2>
+    <div class="col">
+      <h2 class="mb-0">
+        <i class="bi bi-shield-lock me-2"></i>Admin Dashboard
+      </h2>
+      <p class="text-muted">Monitor and manage the online exam portal</p>
     </div>
   </div>
-
-  <div *ngIf="stats; else loading">
-    <!-- User Stats -->
-    <div class="row mb-4">
-      <div class="col-md-4 mb-3">
-        <div class="card shadow-sm h-100">
-          <div class="card-body text-center">
-            <i class="bi bi-person-workspace text-primary display-4 mb-3"></i>
-            <h5 class="card-title">Active Teachers</h5>
-            <p class="card-text display-6">{{ stats.active_teachers }}</p>
-          </div>
-        </div>
-      </div>
-      <div class="col-md-4 mb-3">
-        <div class="card shadow-sm h-100">
-          <div class="card-body text-center">
-            <i class="bi bi-mortarboard text-success display-4 mb-3"></i>
-            <h5 class="card-title">Active Students</h5>
-            <p class="card-text display-6">{{ stats.active_students }}</p>
-          </div>
-        </div>
-      </div>
-      <div class="col-md-4 mb-3">
-        <div class="card shadow-sm h-100">
-          <div class="card-body text-center">
-            <i class="bi bi-person-check text-warning display-4 mb-3"></i>
-            <h5 class="card-title">Pending Verifications</h5>
-            <p class="card-text display-6">{{ stats.pending_verifications }}</p>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Exam Stats -->
-    <div class="row mb-4">
-      <div class="col-md-4 mb-3">
-        <div class="card shadow-sm h-100">
-          <div class="card-body text-center">
-            <i class="bi bi-journal-text text-info display-4 mb-3"></i>
-            <h5 class="card-title">Total Exams</h5>
-            <p class="card-text display-6">{{ stats.total_exams }}</p>
-          </div>
-        </div>
-      </div>
-      <div class="col-md-4 mb-3">
-        <div class="card shadow-sm h-100">
-          <div class="card-body text-center">
-            <i class="bi bi-check-circle text-success display-4 mb-3"></i>
-            <h5 class="card-title">Responses Evaluated</h5>
-            <p class="card-text display-6">{{ stats.responses_evaluated }}</p>
-          </div>
-        </div>
-      </div>
-      <div class="col-md-4 mb-3">
-        <div class="card shadow-sm h-100">
-          <div class="card-body text-center">
-            <i class="bi bi-hourglass-split text-danger display-4 mb-3"></i>
-            <h5 class="card-title">Responses Pending</h5>
-            <p class="card-text display-6">{{ stats.responses_pending_evaluation }}</p>
-          </div>
-        </div>
-      </div>
-    </div>
 
     <!-- Quick Actions -->
-    <div class="row mb-4">
-      <div class="col-12">
-        <div class="card shadow-sm">
-          <div class="card-header bg-white py-3">
-            <h5 class="mb-0"><i class="bi bi-lightning-charge me-2"></i>Quick Actions</h5>
+    <div class="col-12">
+      <div class="card shadow-sm">
+        <div class="card-header bg-white py-3">
+          <h5 class="mb-0"><i class="bi bi-lightning-charge me-2"></i>Quick Actions</h5>
+        </div>
+        <div class="card-body">
+          <div class="row g-3">
+            <div class="col-md-3">
+              <a routerLink="/admin/user-management" class="btn btn-outline-primary w-100 d-flex align-items-center justify-content-center">
+                <i class="bi bi-people me-2"></i>Manage Users
+              </a>
+            </div>
+            <div class="col-md-3">
+              <a routerLink="/admin/evaluate-response" class="btn btn-outline-success w-100 d-flex align-items-center justify-content-center">
+                <i class="bi bi-check-square me-2"></i>Evaluate Responses
+              </a>
+            </div>
+            <div class="col-md-3">
+              <a routerLink="/admin/results-overview" class="btn btn-outline-info w-100 d-flex align-items-center justify-content-center">
+                <i class="bi bi-graph-up me-2"></i>View Results
+              </a>
+            </div>
+            <div class="col-md-3">
+              <a routerLink="/admin/user-management" class="btn btn-outline-warning w-100 d-flex align-items-center justify-content-center">
+                <i class="bi bi-shield-check me-2"></i>Verify Users
+              </a>
+            </div>
           </div>
-          <div class="card-body">
-            <div class="row g-3">
-              <div class="col-md-3">
-                <a routerLink="/admin/user-management" class="btn btn-primary w-100 d-flex align-items-center justify-content-center">
-                  <i class="bi bi-people me-2"></i>Manage Users
-                </a>
+        </div>
+      </div>
+    </div>
+    <br>
+    <br>
+
+  <!-- Loading and Error States -->
+  <app-loading-spinner *ngIf="loading"></app-loading-spinner>
+  <app-error-alert *ngIf="error" [message]="error"></app-error-alert>
+
+  <!-- Dashboard Content -->
+  <div class="row g-4" *ngIf="!loading && !error && stats">
+    <!-- User Statistics -->
+    <div class="col-md-4">
+      <div class="card shadow-sm h-100">
+        <div class="card-body">
+          <div class="d-flex align-items-center mb-3">
+            <div class="rounded-circle bg-primary bg-opacity-10 p-3 me-3">
+              <i class="bi bi-people text-primary fs-4"></i>
+            </div>
+            <div>
+              <h6 class="mb-1">Active Users</h6>
+              <h3 class="mb-0">{{ stats.active_teachers + stats.active_students }}</h3>
+            </div>
+          </div>
+          <div class="mb-3">
+            <div class="d-flex justify-content-between mb-1">
+              <span>Verification Progress</span>
+              <span>{{ getVerificationProgress() }}%</span>
+            </div>
+            <div class="progress" style="height: 6px;">
+              <div class="progress-bar" role="progressbar"
+                   [style.width.%]="getVerificationProgress()"
+                   aria-valuemin="0" aria-valuemax="100"></div>
+            </div>
+          </div>
+          <div class="row text-center g-2">
+            <div class="col-6">
+              <div class="border rounded p-2">
+                <div class="text-success">{{ stats.active_teachers }}</div>
+                <small class="text-muted">Teachers</small>
               </div>
-              <div class="col-md-3">
-                <a routerLink="/admin/results-overview" class="btn btn-success w-100 d-flex align-items-center justify-content-center">
-                  <i class="bi bi-graph-up me-2"></i>View Results
-                </a>
-              </div>
-              <div class="col-md-3">
-                <a routerLink="/admin/evaluate-response" class="btn btn-info w-100 d-flex align-items-center justify-content-center">
-                  <i class="bi bi-check-square me-2"></i>Evaluate Responses
-                </a>
-              </div>
-              <div class="col-md-3">
-                <a routerLink="/admin/user-management" class="btn btn-warning w-100 d-flex align-items-center justify-content-center">
-                  <i class="bi bi-shield-check me-2"></i>Verify Users
-                </a>
+            </div>
+            <div class="col-6">
+              <div class="border rounded p-2">
+                <div class="text-primary">{{ stats.active_students }}</div>
+                <small class="text-muted">Students</small>
               </div>
             </div>
           </div>
@@ -116,51 +92,68 @@
       </div>
     </div>
 
-    <!-- Recent Activity -->
-    <div class="card shadow-sm">
-      <div class="card-header bg-white py-3">
-        <h5 class="mb-0"><i class="bi bi-clock-history me-2"></i>Recent Activity</h5>
-      </div>
-      <div class="card-body p-0">
-        <div class="list-group list-group-flush">
-          <div class="list-group-item">
-            <div class="d-flex align-items-center">
-              <i class="bi bi-person-plus text-success me-3"></i>
-              <div>
-                <h6 class="mb-1">New Teacher Registration</h6>
-                <small class="text-muted">2 hours ago</small>
-              </div>
+    <!-- Exam Statistics -->
+    <div class="col-md-4">
+      <div class="card shadow-sm h-100">
+        <div class="card-body">
+          <div class="d-flex align-items-center mb-3">
+            <div class="rounded-circle bg-success bg-opacity-10 p-3 me-3">
+              <i class="bi bi-journal-check text-success fs-4"></i>
+            </div>
+            <div>
+              <h6 class="mb-1">Total Exams</h6>
+              <h3 class="mb-0">{{ stats.total_exams }}</h3>
             </div>
           </div>
-          <div class="list-group-item">
-            <div class="d-flex align-items-center">
-              <i class="bi bi-check-circle text-primary me-3"></i>
-              <div>
-                <h6 class="mb-1">Exam Responses Evaluated</h6>
-                <small class="text-muted">5 hours ago</small>
-              </div>
+          <div class="mb-3">
+            <div class="d-flex justify-content-between mb-1">
+              <span>Evaluation Progress</span>
+              <span>{{ getEvaluationProgress() }}%</span>
+            </div>
+            <div class="progress" style="height: 6px;">
+              <div class="progress-bar bg-success" role="progressbar"
+                   [style.width.%]="getEvaluationProgress()"
+                   aria-valuemin="0" aria-valuemax="100"></div>
             </div>
           </div>
-          <div class="list-group-item">
-            <div class="d-flex align-items-center">
-              <i class="bi bi-shield-check text-warning me-3"></i>
-              <div>
-                <h6 class="mb-1">User Verification Completed</h6>
-                <small class="text-muted">1 day ago</small>
+          <div class="row text-center g-2">
+            <div class="col-6">
+              <div class="border rounded p-2">
+                <div class="text-success">{{ stats.responses_evaluated }}</div>
+                <small class="text-muted">Evaluated</small>
+              </div>
+            </div>
+            <div class="col-6">
+              <div class="border rounded p-2">
+                <div class="text-warning">{{ stats.responses_pending_evaluation }}</div>
+                <small class="text-muted">Pending</small>
               </div>
             </div>
           </div>
         </div>
       </div>
     </div>
+
+    <!-- Verification Queue -->
+    <div class="col-md-4">
+      <div class="card shadow-sm h-100">
+        <div class="card-body">
+          <div class="d-flex align-items-center mb-3">
+            <div class="rounded-circle bg-warning bg-opacity-10 p-3 me-3">
+              <i class="bi bi-person-check text-warning fs-4"></i>
+            </div>
+            <div>
+              <h6 class="mb-1">Pending Verifications</h6>
+              <h3 class="mb-0">{{ stats.pending_verifications }}</h3>
+            </div>
+          </div>
+          <p class="text-muted mb-3">Users waiting for account verification</p>
+          <a routerLink="/admin/user-management" class="btn btn-warning w-100">
+            <i class="bi bi-person-check me-2"></i>Manage Verifications
+          </a>
+        </div>
+      </div>
+    </div>
+
   </div>
-
-  <ng-template #loading>
-    <div class="text-center py-5">
-      <div class="spinner-border text-primary mb-3" role="status">
-        <span class="visually-hidden">Loading...</span>
-      </div>
-      <p class="text-muted">Loading dashboard data...</p>
-    </div>
-  </ng-template>
 </div>
