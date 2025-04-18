@@ -7,18 +7,32 @@ import { ErrorAlertComponent } from '../../../shared/components/error-alert/erro
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 
-interface EvaluationResult {
-  evaluation_id: number;
+interface Response {
+  response_id: number;
+  exam_id: number;
+  exam_title: string;
+  question_id: number;
+  question_text: string;
+  question_type: string;
+  marks_possible: number;
   student_name: string;
   student_email: string;
-  exam_title: string;
-  question_text: string;
-  student_response: string;
-  marks_awarded: number;
-  marks_possible: number;
-  feedback: string;
-  evaluated_by: string;
-  evaluated_at_utc: string;
+  response_text: string;
+  submitted_at_utc: string;
+  evaluation_status: string;
+  evaluation_id: number | null;
+  evaluated_by: string | null;
+  evaluated_at_utc: string | null;
+  marks_awarded: number | null;
+  feedback: string | null;
+}
+
+interface ResponseData {
+  current_page: number;
+  per_page: number;
+  responses: Response[];
+  total_pages: number;
+  total_responses: number;
 }
 
 @Component({
@@ -28,13 +42,13 @@ interface EvaluationResult {
   templateUrl: './evaluate-response.component.html'
 })
 export class EvaluateResponseComponent implements OnInit {
-  results: EvaluationResult[] = [];
+  responses: Response[] = [];
   loading = false;
   error: string | null = null;
   currentPage = 1;
   totalPages = 1;
-  totalResults = 0;
-  perPage = 20;
+  totalResponses = 0;
+  itemsPerPage = 20;
   
   // For individual response evaluation
   selectedResponse: any = null;
@@ -42,6 +56,7 @@ export class EvaluateResponseComponent implements OnInit {
   manualMarks: number | null = null;
   manualEvaluation: string = '';
   isSubmitting = false;
+  totalResults = 0;
 
   constructor(
     private apiService: ApiService,
@@ -50,25 +65,27 @@ export class EvaluateResponseComponent implements OnInit {
   ) {}
 
   ngOnInit() {
-    this.loadResults();
+    this.loadResponses();
   }
 
-  loadResults(page: number = 1) {
+  loadResponses() {
     this.loading = true;
     this.error = null;
-    
-    this.apiService.getAllResults(page, this.perPage).subscribe({
-      next: (response) => {
-        this.results = response.results;
-        this.totalPages = response.total_pages;
-        this.totalResults = response.total_results;
-        this.currentPage = response.current_page;
+    this.apiService.getAllResponses().subscribe({
+      next: (data: ResponseData) => {
+        this.responses = data.responses;
+        this.currentPage = data.current_page;
+        this.totalPages = data.total_pages;
+        this.totalResponses = data.total_responses;
+        this.itemsPerPage = data.per_page;
         this.loading = false;
       },
-      error: (error) => {
+      error: (err) => {
         this.loading = false;
-        this.error = error.error?.msg || 'Failed to load results';
-        this.errorHandler.handleError(this.error);
+        this.error = err.error?.msg || 'Failed to load responses';
+        if (this.error) {
+          this.errorHandler.handleError(this.error);
+        }
       }
     });
   }
@@ -93,30 +110,22 @@ export class EvaluateResponseComponent implements OnInit {
   }
 
   triggerAIEvaluation(responseId: number) {
-    this.isEvaluating = true;
-    this.error = null;
-    
-    this.apiService.evaluateResponse(responseId).subscribe({
-      next: (response) => {
-        // Update the response in the list
-        const index = this.results.findIndex(r => r.evaluation_id === responseId);
-        if (index !== -1) {
-          this.results[index] = {
-            ...this.results[index],
-            marks_awarded: response.marks_awarded,
-            feedback: response.feedback,
-            evaluated_by: 'AI System',
-            evaluated_at_utc: new Date().toISOString()
-          };
+    if (confirm('Are you sure you want to trigger AI evaluation for this response?')) {
+      this.loading = true;
+      this.error = null;
+      this.apiService.triggerAIEvaluation(responseId).subscribe({
+        next: (result) => {
+          this.loadResponses();
+        },
+        error: (err) => {
+          this.loading = false;
+          this.error = err.error?.msg || 'Failed to trigger AI evaluation';
+          if (this.error) {
+            this.errorHandler.handleError(this.error);
+          }
         }
-        this.isEvaluating = false;
-      },
-      error: (error) => {
-        this.isEvaluating = false;
-        this.error = error.error?.msg || 'Failed to evaluate response';
-        this.errorHandler.handleError(this.error);
-      }
-    });
+      });
+    }
   }
 
   submitEvaluation() {
@@ -135,7 +144,7 @@ export class EvaluateResponseComponent implements OnInit {
       next: () => {
         this.isSubmitting = false;
         this.selectedResponse = null;
-        this.loadResults(this.currentPage); // Refresh the current page
+        this.loadResponses(); // Refresh the current page
       },
       error: (error) => {
         this.isSubmitting = false;
@@ -147,7 +156,7 @@ export class EvaluateResponseComponent implements OnInit {
 
   changePage(page: number) {
     if (page >= 1 && page <= this.totalPages) {
-      this.loadResults(page);
+      this.loadResponses();
     }
   }
 
@@ -155,5 +164,35 @@ export class EvaluateResponseComponent implements OnInit {
     this.selectedResponse = null;
     this.manualMarks = null;
     this.manualEvaluation = '';
+  }
+
+  getStatusClass(status: string): string {
+    switch (status) {
+      case 'Pending Evaluation':
+        return 'bg-warning';
+      case 'Evaluated':
+        return 'bg-success';
+      default:
+        return 'bg-secondary';
+    }
+  }
+
+  getQuestionTypeClass(type: string): string {
+    switch (type) {
+      case 'MCQ':
+        return 'bg-primary';
+      case 'SHORT_ANSWER':
+        return 'bg-info';
+      case 'LONG_ANSWER':
+        return 'bg-success';
+      default:
+        return 'bg-secondary';
+    }
+  }
+
+  formatDate(dateString: string | null): string {
+    if (!dateString) return 'Not evaluated';
+    const date = new Date(dateString);
+    return date.toLocaleString();
   }
 }

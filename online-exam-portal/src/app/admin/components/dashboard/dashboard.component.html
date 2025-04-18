@@ -10,40 +10,39 @@
     </div>
   </div>
 
-    <!-- Quick Actions -->
-    <div class="col-12">
-      <div class="card shadow-sm">
-        <div class="card-header bg-white py-3">
-          <h5 class="mb-0"><i class="bi bi-lightning-charge me-2"></i>Quick Actions</h5>
-        </div>
-        <div class="card-body">
-          <div class="row g-3">
-            <div class="col-md-3">
-              <a routerLink="/admin/user-management" class="btn btn-outline-primary w-100 d-flex align-items-center justify-content-center">
-                <i class="bi bi-people me-2"></i>Manage Users
-              </a>
-            </div>
-            <div class="col-md-3">
-              <a routerLink="/admin/evaluate-response" class="btn btn-outline-success w-100 d-flex align-items-center justify-content-center">
-                <i class="bi bi-check-square me-2"></i>Evaluate Responses
-              </a>
-            </div>
-            <div class="col-md-3">
-              <a routerLink="/admin/results-overview" class="btn btn-outline-info w-100 d-flex align-items-center justify-content-center">
-                <i class="bi bi-graph-up me-2"></i>View Results
-              </a>
-            </div>
-            <div class="col-md-3">
-              <a routerLink="/admin/user-management" class="btn btn-outline-warning w-100 d-flex align-items-center justify-content-center">
-                <i class="bi bi-shield-check me-2"></i>Verify Users
-              </a>
-            </div>
+  <!-- Quick Actions -->
+  <div class="col-12">
+    <div class="card shadow-sm">
+      <div class="card-header bg-white py-3">
+        <h5 class="mb-0"><i class="bi bi-lightning-charge me-2"></i>Quick Actions</h5>
+      </div>
+      <div class="card-body">
+        <div class="row g-3">
+          <div class="col-md-3">
+            <a routerLink="/admin/" class="btn btn-outline-primary w-100 d-flex align-items-center justify-content-center">
+              <i class="bi bi-people me-2"></i>Dashboard
+            </a>
+          </div>
+          <div class="col-md-3">
+            <a routerLink="/admin/user-management" class="btn btn-outline-warning w-100 d-flex align-items-center justify-content-center">
+              <i class="bi bi-shield-check me-2"></i>Manage Users
+            </a>
+          </div>
+          <div class="col-md-3">
+            <a routerLink="/admin/evaluate-response" class="btn btn-outline-success w-100 d-flex align-items-center justify-content-center">
+              <i class="bi bi-check-square me-2"></i>Evaluate Responses
+            </a>
+          </div>
+          <div class="col-md-3">
+            <a routerLink="/admin/results-overview" class="btn btn-outline-info w-100 d-flex align-items-center justify-content-center">
+              <i class="bi bi-graph-up me-2"></i>View Results
+            </a>
           </div>
         </div>
       </div>
     </div>
-    <br>
-    <br>
+  </div>
+  <br>
 
   <!-- Loading and Error States -->
   <app-loading-spinner *ngIf="loading"></app-loading-spinner>

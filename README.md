@@ -890,3 +890,10 @@ flask create-admin
         ```
 
 This command directly adds the user to your database with the `role` set to `ADMIN` and `is_verified` set to `True`. You can then use these credentials to log in via the `POST /auth/login` API endpoint.
+
+
+
+----
+
+## Angular Deploy Build
+    ng build --output-path docs --base-href /Exam/

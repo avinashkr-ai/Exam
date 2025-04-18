@@ -1,11 +1,11 @@
 <div class="container mt-4">
-
   <div class="row mb-4">
     <div class="col-12">
       <h2 class="mb-2"><i class="bi bi-people me-2"></i>User Management</h2>
       <app-error-alert *ngIf="error" [message]="error"></app-error-alert>
     </div>
   </div>
+
 
   <!-- Quick Actions -->
   <div class="col-12">
@@ -16,27 +16,23 @@
       <div class="card-body">
         <div class="row g-3">
           <div class="col-md-3">
-            <a routerLink="/admin/user-management"
-              class="btn btn-outline-primary w-100 d-flex align-items-center justify-content-center">
-              <i class="bi bi-people me-2"></i>Manage Users
+            <a routerLink="/admin/" class="btn btn-outline-primary w-100 d-flex align-items-center justify-content-center">
+              <i class="bi bi-people me-2"></i>Dashboard
             </a>
           </div>
           <div class="col-md-3">
-            <a routerLink="/admin/evaluate-response/"
-              class="btn btn-outline-success w-100 d-flex align-items-center justify-content-center">
+            <a routerLink="/admin/user-management" class="btn btn-outline-warning w-100 d-flex align-items-center justify-content-center">
+              <i class="bi bi-shield-check me-2"></i>Manage Users
+            </a>
+          </div>
+          <div class="col-md-3">
+            <a routerLink="/admin/evaluate-response" class="btn btn-outline-success w-100 d-flex align-items-center justify-content-center">
               <i class="bi bi-check-square me-2"></i>Evaluate Responses
             </a>
           </div>
           <div class="col-md-3">
-            <a routerLink="/admin/results-overview"
-              class="btn btn-outline-info w-100 d-flex align-items-center justify-content-center">
+            <a routerLink="/admin/results-overview" class="btn btn-outline-info w-100 d-flex align-items-center justify-content-center">
               <i class="bi bi-graph-up me-2"></i>View Results
-            </a>
-          </div>
-          <div class="col-md-3">
-            <a routerLink="/admin/user-management"
-              class="btn btn-outline-warning w-100 d-flex align-items-center justify-content-center">
-              <i class="bi bi-shield-check me-2"></i>Verify Users
             </a>
           </div>
         </div>
@@ -44,74 +40,104 @@
     </div>
   </div>
   <br>
+
+  <!-- User Type Tabs -->
+  <div class="col-12 mb-4">
+    <div class="card shadow-sm">
+      <div class="card-header bg-white py-3">
+        <div class="nav nav-tabs card-header-tabs">
+          <button class="nav-link" 
+                  [class.active]="activeTab === 'pending'"
+                  (click)="setActiveTab('pending')">
+            <i class="bi bi-clock-history me-2"></i>Pending Users
+          </button>
+          <button class="nav-link" 
+                  [class.active]="activeTab === 'teachers'"
+                  (click)="setActiveTab('teachers')">
+            <i class="bi bi-person-workspace me-2"></i>Teachers
+          </button>
+          <button class="nav-link" 
+                  [class.active]="activeTab === 'students'"
+                  (click)="setActiveTab('students')">
+            <i class="bi bi-mortarboard me-2"></i>Students
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Users Table Card -->
   <div class="card shadow-sm">
     <div class="card-header bg-white py-3">
       <div class="row align-items-center">
         <div class="col">
-          <h5 class="mb-0"><i class="bi bi-person-lines-fill me-2"></i>Users</h5>
-        </div>
-        <div class="col-auto">
-          <div class="input-group">
-            <span class="input-group-text bg-light border-end-0">
-              <i class="bi bi-search"></i>
-            </span>
-            <input type="text" class="form-control border-start-0" placeholder="Search users...">
-          </div>
+          <h5 class="mb-0">
+            <i class="bi bi-person-lines-fill me-2"></i>
+            {{ activeTab === 'pending' ? 'Pending Users' : 
+               activeTab === 'teachers' ? 'All Teachers' : 'All Students' }}
+          </h5>
         </div>
       </div>
     </div>
     <div class="card-body p-0">
+      <!-- Loading Spinner -->
       <app-loading-spinner *ngIf="loading"></app-loading-spinner>
-      <div *ngIf="!loading && !error">
-        <div class="table-responsive">
-          <table class="table table-hover mb-0">
-            <thead class="table-light">
-              <tr>
-                <th scope="col">Name</th>
-                <th scope="col">Email</th>
-                <th scope="col">Role</th>
-                <th scope="col">Status</th>
-                <th scope="col">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr *ngFor="let user of users">
-                <td>
-                  <div class="d-flex align-items-center">
-                    <i class="bi bi-person-circle me-2 text-primary"></i>
-                    {{ user.name }}
-                  </div>
-                </td>
-                <td>
-                  <div class="d-flex align-items-center">
-                    <i class="bi bi-envelope me-2 text-muted"></i>
-                    {{ user.email }}
-                  </div>
-                </td>
-                <td>
-                  <span [class]="'badge ' + (user.role === 'TEACHER' ? 'bg-primary' : 'bg-success')">
-                    {{ user.role }}
-                  </span>
-                </td>
-                <td>
-                  <span [class]="'badge ' + (user.is_verified ? 'bg-success' : 'bg-warning')">
-                    {{ user.is_verified ? 'Verified' : 'Pending' }}
-                  </span>
-                </td>
-                <td>
-                  <div class="btn-group">
-                    <button class="btn btn-sm btn-outline-success" *ngIf="!user.is_verified"
-                      (click)="verifyUser(user.id)" title="Verify User">
-                      <i class="bi bi-check-circle"></i>
-                    </button>
-                    <button class="btn btn-sm btn-outline-danger" (click)="deleteUser(user.id)" title="Delete User">
-                      <i class="bi bi-trash"></i>
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            </tbody>
-          </table>
+
+      <!-- Users Table -->
+      <div *ngIf="!loading && !error" class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+          <thead class="table-light">
+            <tr>
+              <th scope="col">Name</th>
+              <th scope="col">Email</th>
+              <th scope="col">Status</th>
+              <th scope="col" class="text-center">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let user of users">
+              <td>
+                <div class="d-flex align-items-center">
+                  <i class="bi bi-person-circle me-2 text-primary"></i>
+                  {{ user.name }}
+                </div>
+              </td>
+              <td>
+                <div class="d-flex align-items-center">
+                  <i class="bi bi-envelope me-2 text-muted"></i>
+                  {{ user.email }}
+                </div>
+              </td>
+              <td>
+                <span [class]="'badge ' + getStatusClass(user.is_verified)">
+                  {{ user.is_verified ? 'Verified' : 'Pending' }}
+                </span>
+              </td>
+              <td>
+                <div class="d-flex justify-content-center gap-2">
+                  <button class="btn btn-sm btn-outline-success" 
+                          *ngIf="!user.is_verified"
+                          (click)="verifyUser(user.id)" 
+                          title="Verify User">
+                    <i class="bi bi-check-circle me-1"></i>
+                    Verify
+                  </button>
+                  <button class="btn btn-sm btn-outline-danger" 
+                          (click)="deleteUser(user.id)" 
+                          title="Delete User">
+                    <i class="bi bi-trash me-1"></i>
+                    Delete
+                  </button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+
+        <!-- No Users Message -->
+        <div *ngIf="users.length === 0" class="text-center py-4">
+          <i class="bi bi-inbox text-muted fs-2"></i>
+          <p class="text-muted mb-0 mt-2">No users found in this category.</p>
         </div>
       </div>
     </div>

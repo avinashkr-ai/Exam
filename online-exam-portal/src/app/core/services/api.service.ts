@@ -105,6 +105,13 @@ export class ApiService {
     return this.http.post(`${this.baseUrl}/admin/evaluate/submit`, data);
   }
 
+  getAllResponses(): Observable<any> {
+    return this.http.get(`${this.baseUrl}/admin/response/all`);
+  }
+
+  triggerAIEvaluation(responseId: number): Observable<any> {
+    return this.http.post(`${this.baseUrl}/admin/evaluate/response/${responseId}`, {});
+  }
 
   // Teacher APIs (unchanged)
   getTeacherExams(): Observable<Exam[]> {
