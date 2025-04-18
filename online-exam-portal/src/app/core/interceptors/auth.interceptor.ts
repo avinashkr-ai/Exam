@@ -9,10 +9,12 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
   const router = inject(Router);
   const token = authService.getToken();
 
-  if (req.url.includes('/auth/login') || req.url.includes('/auth/register')) {
+  if (req.url.includes('/auth/login') || 
+      req.url.includes('/auth/register') || 
+      req.url.includes('/auth/refresh')) {
     return next(req);
   }
-
+  
   if (token) {
     const cloned = req.clone({
       setHeaders: {
@@ -22,9 +24,12 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
     return next(cloned).pipe(
       catchError(err => {
         if (err.status === 401) {
-          authService.logout().subscribe(() => {
-            router.navigate(['/auth/login']);
-          });
+          // Only logout if it's not a token refresh attempt
+          if (!req.url.includes('/auth/refresh')) {
+            authService.logout().subscribe(() => {
+              router.navigate(['/auth/login']);
+            });
+          }
         }
         return throwError(() => err);
       })

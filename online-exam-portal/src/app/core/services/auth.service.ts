@@ -4,50 +4,56 @@ import { BehaviorSubject, Observable, of } from 'rxjs';
 import { catchError, map, tap } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
 import { User } from '../models/user';
+import { Router } from '@angular/router';
 
 @Injectable({
   providedIn: 'root'
 })
 export class AuthService {
-  private apiUrl = environment.apiUrl; // 'http://127.0.0.1:5000'
+  private apiUrl = environment.apiUrl;
   private currentUserSubject = new BehaviorSubject<User | null>(null);
   public currentUser = this.currentUserSubject.asObservable();
+  private TOKEN_KEY = 'auth_token';
 
-  constructor(private http: HttpClient) {
+  constructor(
+    private http: HttpClient,
+    private router: Router
+  ) {
     this.loadUserFromStorage();
   }
 
-  private loadUserFromStorage() {
-    const token = this.getToken();
-    if (token) {
-      this.fetchUser().subscribe({
-        next: (user) => {
-          console.log('Loaded user from storage:', user);
-          if (user) {
-            this.currentUserSubject.next(user);
-          } else {
-            this.clearAuth();
-          }
-        },
-        error: (err) => {
-          console.error('Error loading user:', err);
-          this.clearAuth();
-        }
-      });
+  private redirectBasedOnRole(role: string | undefined) {
+    if (!role) return;
+    
+    const roleLower = role.toLowerCase();
+    switch (roleLower) {
+      case 'student':
+        this.router.navigate(['/student']);
+        break;
+      case 'teacher':
+        this.router.navigate(['/teacher']);
+        break;
+      case 'admin':
+        this.router.navigate(['/admin']);
+        break;
+      default:
+        this.router.navigate(['/auth/login']);
     }
   }
 
   login(credentials: { email: string; password: string }): Observable<{ access_token: string }> {
     return this.http.post<{ access_token: string }>(`${this.apiUrl}/auth/login`, credentials).pipe(
       tap(response => {
-        console.log('Login response:', response);
         if (response.access_token) {
-          localStorage.setItem('token', response.access_token);
-          console.log('Token stored:', response.access_token);
+          localStorage.setItem(this.TOKEN_KEY, response.access_token);
           this.fetchUser().subscribe({
             next: (user) => {
-              console.log('Fetched user:', user);
-              this.currentUserSubject.next(user);
+              if (user) {
+                this.currentUserSubject.next(user);
+                this.redirectBasedOnRole(user.role);
+              } else {
+                this.clearAuth();
+              }
             },
             error: (err) => {
               console.error('Failed to fetch user:', err);
@@ -89,17 +95,31 @@ export class AuthService {
     );
   }
 
-  getToken(): string | null {
-    return localStorage.getItem('token');
-  }
-
   isAuthenticated(): boolean {
     return !!this.getToken();
   }
 
+  getToken(): string | null {
+    return localStorage.getItem(this.TOKEN_KEY);
+  }
+  
   private clearAuth() {
-    console.log('Clearing auth state');
-    localStorage.removeItem('token');
+    localStorage.removeItem(this.TOKEN_KEY);
     this.currentUserSubject.next(null);
   }
+
+  loadUserFromStorage() {
+    const token = this.getToken();
+    if (token) {
+      this.fetchUser().subscribe(user => {
+        if (user) {
+          this.currentUserSubject.next(user);
+          this.redirectBasedOnRole(user.role);
+        } else {
+          this.clearAuth();
+        }
+      });
+    }
+  }
+
 }
